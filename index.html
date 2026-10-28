@@ -27,20 +27,17 @@
     <div class="page-head">
       <div>
         <h1>Nuevo ingreso</h1>
-        <p class="sub">Sube el PDF o una foto de la factura. El XML es opcional y ayuda a confirmar los datos.</p>
       </div>
     </div>
     <div class="card">
       <div class="files">
         <label class="filebox" for="soporteFile">
           <span class="filebox-title">PDF o foto <span class="req">obligatorio</span></span>
-          <span class="filebox-hint">Toca para elegir un archivo o tomar la foto</span>
           <input type="file" id="soporteFile" class="sr-only" accept="application/pdf,image/*">
           <span class="filebox-name" id="soporteNombre">Ningún archivo</span>
         </label>
         <label class="filebox" for="xmlFile">
           <span class="filebox-title">XML <span class="opt">opcional</span></span>
-          <span class="filebox-hint">Archivo .xml de la factura electrónica</span>
           <input type="file" id="xmlFile" class="sr-only" accept=".xml,application/xml,text/xml">
           <span class="filebox-name" id="xmlNombre">Ningún archivo</span>
         </label>
@@ -56,7 +53,6 @@
     <div class="page-head">
       <div>
         <h1>Revisar datos</h1>
-        <p class="sub" id="revOrigen"></p>
       </div>
     </div>
     <div class="card">
@@ -108,7 +104,6 @@
     <div class="page-head">
       <div>
         <h1>Facturas guardadas</h1>
-        <p class="sub">Consulta, edita o descarga las facturas que ya registraste.</p>
       </div>
       <button type="button" class="btn-primary" id="btnNuevaDesdeLista">+ Nueva factura</button>
     </div>
@@ -214,11 +209,7 @@
   </section>
 </div>
 <script src="assets/vendor/supabase.js"></script>
-<script src="assets/vendor/pdfjs/pdf.worker.min.js"></script>
-<script src="assets/vendor/pdfjs/pdf.min.js"></script>
-<script src="assets/vendor/tesseract/tesseract.min.js"></script>
 <script src="assets/config.js"></script>
-<script src="assets/lector.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

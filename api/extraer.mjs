@@ -49,7 +49,7 @@ Reglas:
 - Factura: número de factura en MAYÚSCULAS y solo con letras y números (sin espacios, guiones ni símbolos).
 - Fecha: fecha de expedición en formato AAAA-MM-DD.
 - Nit: NIT con dígito de verificación (ejemplo: 900294380-1).
-- Productos: incluye TODAS las líneas de la factura, en el mismo orden en que aparecen.
+- Productos: incluye TODAS las líneas de la factura, en el mismo orden en que aparecen, de arriba hacia abajo. No los ordenes por código, nombre ni valor.
 - Artículo: código de referencia o SKU.
 - Nombre: descripción completa del producto.
 - Invima: registro sanitario o INVIMA. Si no aparece, usa "0".

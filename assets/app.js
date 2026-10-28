@@ -203,8 +203,9 @@
 
   async function irLista() {
     if (state.pantalla === 'revision' && !confirm('¿Descartar los datos sin guardar?')) return;
-    await cargarLista();
+    if (state.lista.length) renderLista();
     nav('lista');
+    await cargarLista();
   }
 
   function nuevaFactura() {
@@ -252,6 +253,88 @@
     if (tipo === 'image/webp') return 'webp';
     if (tipo === 'image/heic') return 'heic';
     return 'jpg';
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1] || '');
+      r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function prepararArchivoIA(file) {
+    const esPdf = mimeDeArchivo(file) === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (esPdf) {
+      if (file.size > 3 * 1024 * 1024) {
+        throw new Error('El PDF pesa más de 3 MB. Comprímelo o sube una foto de la factura.');
+      }
+      return { base64: await fileToBase64(file), mime: 'application/pdf' };
+    }
+
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch {
+      throw new Error(
+        'No se pudo abrir la imagen. Si es una foto de iPhone en formato HEIC, guárdala como JPG o toma la foto de nuevo.'
+      );
+    }
+    const max = 2000;
+    const escala = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * escala));
+    canvas.height = Math.max(1, Math.round(bitmap.height * escala));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if (bitmap.close) bitmap.close();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('No se pudo preparar la imagen.');
+    return { base64: await fileToBase64(blob), mime: 'image/jpeg' };
+  }
+
+  let lectorLocal = null;
+
+  function cargarScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('No se pudo cargar el lector local.'));
+      document.body.appendChild(s);
+    });
+  }
+
+  function cargarLectorLocal() {
+    if (lectorLocal) return lectorLocal;
+    lectorLocal = (async () => {
+      await cargarScript('assets/vendor/pdfjs/pdf.worker.min.js');
+      await cargarScript('assets/vendor/pdfjs/pdf.min.js');
+      await cargarScript('assets/vendor/tesseract/tesseract.min.js');
+      await cargarScript('assets/lector.js');
+      if (!window.LectorFactura) throw new Error('No se pudo iniciar el lector local.');
+    })();
+    return lectorLocal;
+  }
+
+  async function leerConIA(file, xmlTexto) {
+    const { base64, mime } = await prepararArchivoIA(file);
+    const resp = await fetch('/api/extraer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archivoBase64: base64, archivoMime: mime, xmlTexto: xmlTexto || '' })
+    });
+    let json;
+    try {
+      json = await resp.json();
+    } catch {
+      throw new Error('El servidor devolvió una respuesta inesperada.');
+    }
+    if (!resp.ok || !json.ok) throw new Error(json.error || 'No se pudo leer la factura.');
+    return json.datos || {};
   }
 
   function wireFileInputs() {
@@ -481,22 +564,45 @@
     }
     const btn = $('btnGenerar');
     setBusy(btn, true, 'Leyendo factura...');
-    setMsg('msgSubir', 'La primera vez puede tardar mientras carga el lector.', '');
+    setMsg('msgSubir', 'Leyendo la factura con IA...', '');
     try {
-      if (!window.LectorFactura) throw new Error('No se cargó el lector local. Recarga la página.');
+      let datos = null;
+      let errorIA = '';
+      try {
+        const ia = await leerConIA(state.soporte, state.xmlTexto);
+        datos = combinarDatos(ia, xml);
+        if (!datos.productos.length) {
+          errorIA = 'la IA no encontró productos';
+          datos = null;
+        }
+      } catch (err) {
+        errorIA = err.message || String(err);
+      }
+
+      if (datos) {
+        usarDatos(datos);
+        setMsg('msgSubir', '');
+        return;
+      }
+
+      setMsg('msgSubir', 'La IA no respondió. Leyendo en este dispositivo...', '');
+      await cargarLectorLocal();
       const leido = await window.LectorFactura.leerFactura(state.soporte, (p) => {
         const pct = p && typeof p.progress === 'number' ? ` · ${Math.round(p.progress * 100)}%` : '';
         setMsg('msgSubir', `${(p && p.status) || 'Leyendo factura'}${pct}`, '');
       });
-      const datos = combinarDatos(leido, xml);
-      if (!datos.productos.length && !datos.proveedor && !datos.factura) {
+      const local = combinarDatos(leido, xml);
+      if (!local.productos.length && !local.proveedor && !local.factura) {
         throw new Error('No se pudo leer la factura. Prueba con una foto más nítida, derecha y completa.');
       }
-      usarDatos(datos);
+      usarDatos(local);
       setMsg('msgSubir', '');
-      if (!datos.productos.length) {
-        setMsg('msgRevision', 'No se reconocieron productos. Revisa los datos y agrégalos a mano antes de guardar.', 'err');
-      }
+      setMsg(
+        'msgRevision',
+        (errorIA ? `La IA no respondió (${errorIA}). ` : '') +
+          'La factura se leyó en este dispositivo; revisa los datos antes de guardar.',
+        ''
+      );
     } catch (err) {
       if (xml && xml.productos && xml.productos.length) {
         usarDatos(combinarDatos({}, xml));
@@ -623,9 +729,6 @@
     $('revProductos').innerHTML = (d.productos || []).map(filaProductoHTML).join('');
     if (!(d.productos || []).length) agregarFila($('revProductos'));
     $('revTxt').textContent = state.txtGenerado || '';
-    $('revOrigen').textContent = state.xmlTexto
-      ? 'Datos leídos de la factura y confirmados con el XML.'
-      : 'Datos leídos de la factura en este dispositivo.';
     setMsg('msgRevision', '');
   }
 

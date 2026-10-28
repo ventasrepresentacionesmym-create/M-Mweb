@@ -500,10 +500,25 @@
     return lineas.join('\n').trim();
   }
 
+  function usarDatos(datos) {
+    state.datos = datos;
+    state.txtGenerado = generarTxt(datos);
+    renderRevision();
+    nav('revision');
+  }
+
   async function generarIngreso() {
     if (!state.soporte) {
       setMsg('msgSubir', 'Selecciona el PDF o una foto de la factura.', 'err');
       return;
+    }
+    let xml = null;
+    if (state.xmlTexto) {
+      try {
+        xml = parseXml(state.xmlTexto);
+      } catch (err) {
+        console.warn('XML no procesado:', err);
+      }
     }
     const btn = $('btnGenerar');
     setBusy(btn, true, 'Leyendo con IA...');
@@ -527,26 +542,24 @@
       }
       if (!resp.ok || !json.ok) throw new Error(json.error || 'No se pudo leer la factura.');
 
-      let xml = null;
-      if (state.xmlTexto) {
-        try {
-          xml = parseXml(state.xmlTexto);
-        } catch (err) {
-          console.warn('XML no procesado:', err);
-        }
-      }
       const datos = combinarDatos(json.datos || {}, xml);
       if (!datos.productos.length) {
         throw new Error(
           'La IA no encontró productos. Revisa que la factura se vea nítida o intenta con otra foto.'
         );
       }
-      state.datos = datos;
-      state.txtGenerado = generarTxt(datos);
-      renderRevision();
-      nav('revision');
+      usarDatos(datos);
     } catch (err) {
-      setMsg('msgSubir', err.message || String(err), 'err');
+      if (xml && xml.productos && xml.productos.length) {
+        usarDatos(combinarDatos({}, xml));
+        setMsg(
+          'msgRevision',
+          'La IA no respondió (' + (err.message || err) + '). Se usaron los datos del XML; revisa todo antes de guardar.',
+          'err'
+        );
+      } else {
+        setMsg('msgSubir', err.message || String(err), 'err');
+      }
     } finally {
       setBusy(btn, false);
     }

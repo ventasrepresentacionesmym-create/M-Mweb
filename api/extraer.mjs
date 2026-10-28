@@ -126,6 +126,8 @@ export default async function handler(req, res) {
   };
 
   let resp;
+  const ocupado = (s) => s === 503 || s === 500;
+  const sinCupo = (s) => s === 429;
   for (let intento = 0; intento < 2; intento++) {
     if (intento > 0) await new Promise((r) => setTimeout(r, 1500));
     for (let i = 0; i < modelos.length; i++) {
@@ -151,10 +153,10 @@ export default async function handler(req, res) {
             : 'No se pudo conectar con la IA.'
         });
       }
-      if (resp.status !== 503 && resp.status !== 500) break;
+      if (!ocupado(resp.status) && !sinCupo(resp.status)) break;
       if (i < modelos.length - 1) await new Promise((r) => setTimeout(r, 600));
     }
-    if (resp && resp.status !== 503 && resp.status !== 500) break;
+    if (resp && !ocupado(resp.status)) break;
   }
 
   if (!resp.ok) {
@@ -168,7 +170,7 @@ export default async function handler(req, res) {
       401: 'La clave de Gemini no es válida. Revisa GEMINI_API_KEY.',
       403: 'La clave de Gemini no tiene permisos. Revisa GEMINI_API_KEY.',
       404: 'El modelo de IA no está disponible. Revisa GEMINI_MODEL.',
-      429: 'Se alcanzó el límite gratuito de la IA. Espera un minuto y vuelve a intentar.',
+      429: 'La IA alcanzó su límite gratuito (por minuto o por día). Espera un momento y vuelve a intentar; si persiste, el cupo se renueva mañana o puedes activar facturación en Google AI Studio.',
       503: 'La IA está saturada en este momento. Espera unos segundos y vuelve a intentar.'
     };
     const msg = mensajes[resp.status] || `La IA respondió con un error (${resp.status}).`;

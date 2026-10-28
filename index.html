@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Ingresos — Base de facturas</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">I</span>
+      <div>
+        <strong>Ingresos</strong>
+        <span class="brand-sub">Base de facturas</span>
+      </div>
+    </div>
+    <nav class="header-actions">
+      <button type="button" class="btn-ghost" id="btnVolver" hidden>← Volver</button>
+      <button type="button" class="btn-ghost" id="btnLista">Facturas guardadas</button>
+    </nav>
+  </header>
+
+  <section id="pantallaSubir" class="pantalla">
+    <div class="page-head">
+      <div>
+        <h1>Nuevo ingreso</h1>
+        <p class="sub">Sube el PDF o una foto de la factura. El XML es opcional y ayuda a confirmar los datos.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="files">
+        <label class="filebox" for="soporteFile">
+          <span class="filebox-title">PDF o foto <span class="req">obligatorio</span></span>
+          <span class="filebox-hint">Toca para elegir un archivo o tomar la foto</span>
+          <input type="file" id="soporteFile" class="sr-only" accept="application/pdf,image/*">
+          <span class="filebox-name" id="soporteNombre">Ningún archivo</span>
+        </label>
+        <label class="filebox" for="xmlFile">
+          <span class="filebox-title">XML <span class="opt">opcional</span></span>
+          <span class="filebox-hint">Archivo .xml de la factura electrónica</span>
+          <input type="file" id="xmlFile" class="sr-only" accept=".xml,application/xml,text/xml">
+          <span class="filebox-name" id="xmlNombre">Ningún archivo</span>
+        </label>
+      </div>
+      <div class="row-btns">
+        <button type="button" class="btn-primary" id="btnGenerar">Generar ingreso</button>
+      </div>
+      <div class="msg" id="msgSubir"></div>
+    </div>
+  </section>
+
+  <section id="pantallaRevision" class="pantalla" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Revisar datos</h1>
+        <p class="sub" id="revOrigen"></p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Datos de la factura</h2>
+      <div class="grid">
+        <div><label for="revProveedor">Proveedor</label><input id="revProveedor" autocomplete="off"></div>
+        <div><label for="revFactura">Factura</label><input id="revFactura" autocomplete="off"></div>
+        <div><label for="revFecha">Fecha</label><input id="revFecha" type="date"></div>
+        <div><label for="revNit">Nit</label><input id="revNit" autocomplete="off"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Productos</h2>
+        <button type="button" class="btn-ghost btn-sm" id="btnAgregarProducto">+ Agregar producto</button>
+      </div>
+      <div class="table-wrap">
+        <table class="tabla-productos">
+          <thead>
+            <tr>
+              <th>Artículo</th>
+              <th>Nombre</th>
+              <th>Invima / Registro</th>
+              <th>Presentación</th>
+              <th>Cantidad</th>
+              <th>V/U</th>
+              <th>Total</th>
+              <th>Precio</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="revProductos"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <details>
+        <summary>Ver TXT generado</summary>
+        <pre class="txt-box" id="revTxt"></pre>
+      </details>
+    </div>
+    <div class="row-btns">
+      <button type="button" class="btn-primary" id="btnGuardar">Guardar en la base</button>
+    </div>
+    <div class="msg" id="msgRevision"></div>
+  </section>
+
+  <section id="pantallaLista" class="pantalla" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Facturas guardadas</h1>
+        <p class="sub">Consulta, edita o descarga las facturas que ya registraste.</p>
+      </div>
+      <button type="button" class="btn-primary" id="btnNuevaDesdeLista">+ Nueva factura</button>
+    </div>
+    <div class="card">
+      <div class="toolbar">
+        <input id="busqueda" placeholder="Buscar por proveedor, factura o NIT" autocomplete="off">
+      </div>
+      <div class="tabs" id="tabsEstado">
+        <button type="button" class="tab active" data-filtro="todas">Todas <span id="countTodas">0</span></button>
+        <button type="button" class="tab" data-filtro="pendiente">Pendientes <span id="countPendientes">0</span></button>
+        <button type="button" class="tab" data-filtro="ingresada">Ingresadas <span id="countIngresadas">0</span></button>
+      </div>
+      <div class="msg" id="msgLista"></div>
+      <div class="table-wrap">
+        <table class="tabla-lista">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Factura</th>
+              <th>Fecha factura</th>
+              <th>Guardada</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="listaTbody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="listaVacia" hidden>No hay facturas guardadas.</p>
+    </div>
+  </section>
+
+  <section id="pantallaFactura" class="pantalla" hidden>
+    <div class="detail-head">
+      <div>
+        <h1 id="detTitulo">Factura</h1>
+        <p class="sub" id="detProveedorTexto"></p>
+      </div>
+      <span class="badge" id="detEstado"></span>
+    </div>
+    <div class="banner banner-ok" id="detGuardadaMsg" hidden>Factura guardada correctamente. Ahora puedes generar el informe.</div>
+    <div class="card">
+      <div class="row-btns no-margin">
+        <button type="button" class="btn-ghost" id="btnDescargarSoporte" hidden>Descargar PDF/foto</button>
+        <button type="button" class="btn-ghost" id="btnDescargarXml" hidden>Descargar XML</button>
+        <button type="button" class="btn-danger" id="btnEliminar">Eliminar</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Datos de la factura</h2>
+      <div class="grid">
+        <div><label for="detInProveedor">Proveedor</label><input id="detInProveedor" autocomplete="off"></div>
+        <div><label for="detInFactura">Factura</label><input id="detInFactura" autocomplete="off"></div>
+        <div><label for="detInFecha">Fecha</label><input id="detInFecha" type="date"></div>
+        <div><label for="detInNit">Nit</label><input id="detInNit" autocomplete="off"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Productos</h2>
+        <button type="button" class="btn-ghost btn-sm" id="btnAgregarProductoDet">+ Agregar producto</button>
+      </div>
+      <div class="table-wrap">
+        <table class="tabla-productos">
+          <thead>
+            <tr>
+              <th>Artículo</th>
+              <th>Nombre</th>
+              <th>Invima / Registro</th>
+              <th>Presentación</th>
+              <th>Cantidad</th>
+              <th>V/U</th>
+              <th>Total</th>
+              <th>Precio</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="detProductos"></tbody>
+        </table>
+      </div>
+      <div class="row-btns">
+        <button type="button" class="btn-primary" id="btnGuardarCambios">Guardar cambios</button>
+      </div>
+      <div class="msg" id="msgDetalle"></div>
+    </div>
+    <div class="card">
+      <h2>Informe</h2>
+      <p class="sub" id="informeAyuda">Pega el texto del sistema contable y genera el informe.</p>
+      <div id="informeNuevo">
+        <textarea id="informeEntrada" placeholder="Pega aquí el texto de los productos..."></textarea>
+        <div class="row-btns">
+          <button type="button" class="btn-primary" id="btnGenerarInforme">Generar informe</button>
+        </div>
+      </div>
+      <div id="informeResultadoWrap" hidden>
+        <pre class="report-out" id="informeResultado"></pre>
+        <div class="row-btns">
+          <button type="button" class="btn-primary" id="btnCopiarInforme">Copiar</button>
+          <button type="button" class="btn-ok" id="btnMarcarIngresada">Marcar como ingresada</button>
+        </div>
+      </div>
+      <div class="msg" id="msgInforme"></div>
+    </div>
+  </section>
+</div>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

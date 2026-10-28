@@ -254,47 +254,6 @@
     return 'jpg';
   }
 
-  function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result).split(',')[1] || '');
-      r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
-      r.readAsDataURL(file);
-    });
-  }
-
-  async function prepararArchivoIA(file) {
-    const esPdf = mimeDeArchivo(file) === 'application/pdf' || /\.pdf$/i.test(file.name);
-    if (esPdf) {
-      if (file.size > 3 * 1024 * 1024) {
-        throw new Error('El PDF pesa más de 3 MB. Comprímelo o sube una foto de la factura.');
-      }
-      return { base64: await fileToBase64(file), mime: 'application/pdf' };
-    }
-
-    let bitmap;
-    try {
-      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    } catch {
-      throw new Error(
-        'No se pudo abrir la imagen. Si es una foto de iPhone en formato HEIC, guárdala como JPG o toma la foto de nuevo.'
-      );
-    }
-    const max = 2000;
-    const escala = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * escala));
-    canvas.height = Math.max(1, Math.round(bitmap.height * escala));
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    if (bitmap.close) bitmap.close();
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-    if (!blob) throw new Error('No se pudo preparar la imagen.');
-    return { base64: await fileToBase64(blob), mime: 'image/jpeg' };
-  }
-
   function wireFileInputs() {
     $('soporteFile').addEventListener('change', (e) => {
       const f = e.target.files[0];
@@ -441,7 +400,7 @@
     return { proveedor, factura, fecha, nit, productos };
   }
 
-  // ---------- Extracción con IA ----------
+  // ---------- Lectura de la factura ----------
 
   function normalizarProducto(p) {
     const cantidad = num(p.cantidad);
@@ -521,40 +480,29 @@
       }
     }
     const btn = $('btnGenerar');
-    setBusy(btn, true, 'Leyendo con IA...');
-    setMsg('msgSubir', 'Esto puede tardar unos segundos...', '');
+    setBusy(btn, true, 'Leyendo factura...');
+    setMsg('msgSubir', 'La primera vez puede tardar mientras carga el lector.', '');
     try {
-      const { base64, mime } = await prepararArchivoIA(state.soporte);
-      const resp = await fetch('/api/extraer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          archivoBase64: base64,
-          archivoMime: mime,
-          xmlTexto: state.xmlTexto || ''
-        })
+      if (!window.LectorFactura) throw new Error('No se cargó el lector local. Recarga la página.');
+      const leido = await window.LectorFactura.leerFactura(state.soporte, (p) => {
+        const pct = p && typeof p.progress === 'number' ? ` · ${Math.round(p.progress * 100)}%` : '';
+        setMsg('msgSubir', `${(p && p.status) || 'Leyendo factura'}${pct}`, '');
       });
-      let json;
-      try {
-        json = await resp.json();
-      } catch {
-        throw new Error('El servidor devolvió una respuesta inesperada.');
-      }
-      if (!resp.ok || !json.ok) throw new Error(json.error || 'No se pudo leer la factura.');
-
-      const datos = combinarDatos(json.datos || {}, xml);
-      if (!datos.productos.length) {
-        throw new Error(
-          'La IA no encontró productos. Revisa que la factura se vea nítida o intenta con otra foto.'
-        );
+      const datos = combinarDatos(leido, xml);
+      if (!datos.productos.length && !datos.proveedor && !datos.factura) {
+        throw new Error('No se pudo leer la factura. Prueba con una foto más nítida, derecha y completa.');
       }
       usarDatos(datos);
+      setMsg('msgSubir', '');
+      if (!datos.productos.length) {
+        setMsg('msgRevision', 'No se reconocieron productos. Revisa los datos y agrégalos a mano antes de guardar.', 'err');
+      }
     } catch (err) {
       if (xml && xml.productos && xml.productos.length) {
         usarDatos(combinarDatos({}, xml));
         setMsg(
           'msgRevision',
-          'La IA no respondió (' + (err.message || err) + '). Se usaron los datos del XML; revisa todo antes de guardar.',
+          'No se pudo leer el PDF o la foto (' + (err.message || err) + '). Se usaron los datos del XML; revisa todo antes de guardar.',
           'err'
         );
       } else {
@@ -673,10 +621,11 @@
     $('revFecha').value = d.fecha || '';
     $('revNit').value = d.nit || '';
     $('revProductos').innerHTML = (d.productos || []).map(filaProductoHTML).join('');
+    if (!(d.productos || []).length) agregarFila($('revProductos'));
     $('revTxt').textContent = state.txtGenerado || '';
     $('revOrigen').textContent = state.xmlTexto
-      ? 'Datos extraídos de la factura y confirmados con el XML.'
-      : 'Datos extraídos de la factura con IA.';
+      ? 'Datos leídos de la factura y confirmados con el XML.'
+      : 'Datos leídos de la factura en este dispositivo.';
     setMsg('msgRevision', '');
   }
 

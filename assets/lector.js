@@ -26,11 +26,11 @@
   };
 
   const ESTADOS_OCR = {
-    'loading tesseract core': 'Cargando lector local',
-    'initializing tesseract': 'Iniciando lector local',
-    'loading language traineddata': 'Cargando idioma español',
-    'initializing api': 'Preparando el reconocimiento',
-    'recognizing text': 'Leyendo texto de la imagen'
+    'loading tesseract core': 'Cargando lector',
+    'initializing tesseract': 'Iniciando lector',
+    'loading language traineddata': 'Cargando idioma',
+    'initializing api': 'Preparando',
+    'recognizing text': 'Leyendo texto'
   };
 
   function norm(v) {
@@ -417,7 +417,7 @@
 
   function canvasAJpeg(canvas) {
     return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('No se pudo preparar la imagen.'))), 'image/jpeg', 0.9);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Imagen no válida.'))), 'image/jpeg', 0.9);
     });
   }
 
@@ -426,7 +426,7 @@
     try {
       bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     } catch {
-      throw new Error('No se pudo abrir la imagen. Si es una foto de iPhone (HEIC), guárdala como JPG y vuelve a intentar.');
+      throw new Error('Imagen no compatible.');
     }
     const max = Math.max(bitmap.width, bitmap.height);
     const escala = Math.min(2, Math.max(0.2, 2000 / max));
@@ -457,7 +457,7 @@
 
   async function crearOcr(onProgress) {
     const Tesseract = global.Tesseract;
-    if (!Tesseract) throw new Error('No se cargó el lector OCR. Recarga la página.');
+    if (!Tesseract) throw new Error('Lector no disponible.');
     return Tesseract.createWorker('spa', 1, {
       workerPath: urlVendor(RUTAS.worker),
       corePath: urlVendor(RUTAS.core),
@@ -504,14 +504,14 @@
       for (const img of imagenes) {
         n++;
         if (onProgress) {
-          onProgress({ status: imagenes.length > 1 ? `Reconociendo página ${n} de ${imagenes.length}` : 'Reconociendo imagen', progress: 0.15 });
+          onProgress({ status: imagenes.length > 1 ? `Página ${n} de ${imagenes.length}` : 'Leyendo imagen', progress: 0.15 });
         }
         const { data } = await worker.recognize(img, {}, { text: true, blocks: true });
         const palabras = palabrasDeResultado(data);
         if (!palabras.length) {
           const texto = String((data && data.text) || '').trim();
-          if (texto) throw new Error('El OCR leyó texto pero sin posiciones; intenta con una foto más nítida y derecha.');
-          throw new Error('El OCR no encontró texto. Revisa que la foto se vea nítida y completa.');
+          if (texto) throw new Error('Imagen no legible.');
+          throw new Error('No se encontró texto.');
         }
         items.push(...palabras);
       }
@@ -528,35 +528,35 @@
     const esPdf = /pdf/i.test(file.type || '') || /\.pdf$/i.test(file.name || '');
 
     if (esPdf) {
-      aviso('Abriendo el PDF', 0.05);
+      aviso('Abriendo PDF', 0.05);
       const buffer = await file.arrayBuffer();
       let extraido;
       try {
         extraido = await extraerTextoPdf(buffer);
       } catch (err) {
-        throw new Error('No se pudo abrir el PDF: ' + (err.message || err));
+        throw new Error('PDF no válido.');
       }
       const caracteres = extraido.paginas.reduce(
         (total, p) => total + p.items.reduce((s, it) => s + it.s.length, 0),
         0
       );
       if (caracteres >= 120) {
-        aviso('Leyendo el texto del PDF', 0.9);
+        aviso('Leyendo PDF', 0.9);
         const datos = parsearPaginas(extraido.paginas);
         return { ...datos, origen: 'pdf' };
       }
-      aviso('PDF escaneado: preparando OCR', 0.1);
+      aviso('Preparando OCR', 0.1);
       const imagenes = [];
       const maxPaginas = Math.min(extraido.paginas.length, 5);
       for (let i = 0; i < maxPaginas; i++) {
-        aviso(`Preparando página ${i + 1} de ${maxPaginas}`, 0.12);
+        aviso(`Página ${i + 1} de ${maxPaginas}`, 0.12);
         imagenes.push(await renderizarPagina(extraido.paginas[i].page, extraido.paginas[i].viewport));
       }
       const items = await ocrImagenes(imagenes, onProgress);
       return { ...parsearItems(items, null), origen: 'pdf-ocr' };
     }
 
-    aviso('Preparando la imagen', 0.08);
+    aviso('Preparando imagen', 0.08);
     const imagen = await imagenNormalizada(file);
     const items = await ocrImagenes([imagen], onProgress);
     return { ...parsearItems(items, null), origen: 'foto' };

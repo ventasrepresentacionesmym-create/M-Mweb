@@ -11,14 +11,11 @@
 <div class="wrap">
   <header class="app-header">
     <div class="brand">
-      <span class="brand-mark">I</span>
-      <div>
-        <strong>Ingresos</strong>
-        <span class="brand-sub">Base de facturas</span>
-      </div>
+      <strong>Ingresos</strong>
+      <span class="brand-sub">Base de facturas</span>
     </div>
     <nav class="header-actions">
-      <button type="button" class="btn-ghost" id="btnVolver" hidden>← Volver</button>
+      <button type="button" class="btn-ghost" id="btnVolver" hidden>Volver</button>
       <button type="button" class="btn-ghost" id="btnLista">Facturas guardadas</button>
     </nav>
   </header>
@@ -67,7 +64,7 @@
     <div class="card">
       <div class="card-head">
         <h2>Productos</h2>
-        <button type="button" class="btn-ghost btn-sm" id="btnAgregarProducto">+ Agregar producto</button>
+        <button type="button" class="btn-ghost btn-sm" id="btnAgregarProducto">Agregar producto</button>
       </div>
       <div class="table-wrap">
         <table class="tabla-productos">
@@ -90,7 +87,7 @@
     </div>
     <div class="card">
       <details>
-        <summary>Ver TXT generado</summary>
+        <summary>TXT generado</summary>
         <pre class="txt-box" id="revTxt"></pre>
       </details>
     </div>
@@ -105,7 +102,7 @@
       <div>
         <h1>Facturas guardadas</h1>
       </div>
-      <button type="button" class="btn-primary" id="btnNuevaDesdeLista">+ Nueva factura</button>
+      <button type="button" class="btn-primary" id="btnNuevaDesdeLista">Nueva factura</button>
     </div>
     <div class="card">
       <div class="toolbar">
@@ -143,7 +140,6 @@
       </div>
       <span class="badge" id="detEstado"></span>
     </div>
-    <div class="banner banner-ok" id="detGuardadaMsg" hidden>Factura guardada correctamente. Ahora puedes generar el informe.</div>
     <div class="card">
       <div class="row-btns no-margin">
         <button type="button" class="btn-ghost" id="btnDescargarSoporte" hidden>Descargar PDF/foto</button>
@@ -163,7 +159,7 @@
     <div class="card">
       <div class="card-head">
         <h2>Productos</h2>
-        <button type="button" class="btn-ghost btn-sm" id="btnAgregarProductoDet">+ Agregar producto</button>
+        <button type="button" class="btn-ghost btn-sm" id="btnAgregarProductoDet">Agregar producto</button>
       </div>
       <div class="table-wrap">
         <table class="tabla-productos">
@@ -190,9 +186,8 @@
     </div>
     <div class="card">
       <h2>Informe</h2>
-      <p class="sub" id="informeAyuda">Pega el texto del sistema contable y genera el informe.</p>
       <div id="informeNuevo">
-        <textarea id="informeEntrada" placeholder="Pega aquí el texto de los productos..."></textarea>
+        <textarea id="informeEntrada" placeholder="Texto de productos"></textarea>
         <div class="row-btns">
           <button type="button" class="btn-primary" id="btnGenerarInforme">Generar informe</button>
         </div>

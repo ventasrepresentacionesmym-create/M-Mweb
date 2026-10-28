@@ -3,8 +3,7 @@
 (() => {
   const CFG = window.CONFIG || {};
   if (!window.supabase || !CFG.SUPABASE_URL || !CFG.SUPABASE_KEY) {
-    document.body.innerHTML =
-      '<div class="wrap"><div class="card"><h1>Falta configuración</h1><p>Revisa <code>assets/config.js</code>.</p></div></div>';
+    document.body.innerHTML = '<div class="wrap"><p>Falta configuración.</p></div>';
     return;
   }
 
@@ -30,8 +29,6 @@
     filtro: 'todas',
     busqueda: ''
   };
-
-  // ---------- Utilidades ----------
 
   function esc(v) {
     return String(v ?? '')
@@ -173,8 +170,6 @@
       : '<span class="badge badge-pending">Pendiente</span>';
   }
 
-  // ---------- Navegación ----------
-
   function nav(nombre) {
     Object.values(PANTALLA_IDS).forEach((id) => {
       $(id).hidden = true;
@@ -233,8 +228,6 @@
     setMsg('msgRevision', '');
   }
 
-  // ---------- Archivos ----------
-
   function mimeDeArchivo(file) {
     if (file.type) return file.type;
     if (/\.pdf$/i.test(file.name)) return 'application/pdf';
@@ -264,11 +257,11 @@
     });
   }
 
-  async function prepararArchivoIA(file) {
+  async function prepararArchivo(file) {
     const esPdf = mimeDeArchivo(file) === 'application/pdf' || /\.pdf$/i.test(file.name);
     if (esPdf) {
       if (file.size > 3 * 1024 * 1024) {
-        throw new Error('El PDF pesa más de 3 MB. Comprímelo o sube una foto de la factura.');
+        throw new Error('PDF demasiado grande.');
       }
       return { base64: await fileToBase64(file), mime: 'application/pdf' };
     }
@@ -278,7 +271,7 @@
       bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     } catch {
       throw new Error(
-        'No se pudo abrir la imagen. Si es una foto de iPhone en formato HEIC, guárdala como JPG o toma la foto de nuevo.'
+        'Imagen no compatible.'
       );
     }
     const max = 2000;
@@ -292,7 +285,7 @@
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     if (bitmap.close) bitmap.close();
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-    if (!blob) throw new Error('No se pudo preparar la imagen.');
+    if (!blob) throw new Error('Imagen no válida.');
     return { base64: await fileToBase64(blob), mime: 'image/jpeg' };
   }
 
@@ -320,8 +313,8 @@
     return lectorLocal;
   }
 
-  async function leerConIA(file, xmlTexto) {
-    const { base64, mime } = await prepararArchivoIA(file);
+  async function leerFacturaServidor(file, xmlTexto) {
+    const { base64, mime } = await prepararArchivo(file);
     const resp = await fetch('/api/extraer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -331,7 +324,7 @@
     try {
       json = await resp.json();
     } catch {
-      throw new Error('El servidor devolvió una respuesta inesperada.');
+      throw new Error('Error del servidor.');
     }
     if (!resp.ok || !json.ok) throw new Error(json.error || 'No se pudo leer la factura.');
     return json.datos || {};
@@ -353,7 +346,7 @@
         state.soporte = null;
         e.target.value = '';
         $('soporteNombre').textContent = 'Ningún archivo';
-        setMsg('msgSubir', 'El archivo debe ser un PDF o una foto (JPG, PNG).', 'err');
+        setMsg('msgSubir', 'Formato no válido.', 'err');
         return;
       }
       state.soporte = f;
@@ -371,7 +364,7 @@
       }
       try {
         const texto = await f.text();
-        if (!texto.includes('<')) throw new Error('El archivo no parece un XML.');
+        if (!texto.includes('<')) throw new Error('XML no válido.');
         state.xml = f;
         state.xmlTexto = texto;
         $('xmlNombre').textContent = `${f.name} · ${bytes(f.size)}`;
@@ -380,12 +373,10 @@
         state.xmlTexto = '';
         e.target.value = '';
         $('xmlNombre').textContent = 'Ningún archivo';
-        setMsg('msgSubir', 'No se pudo leer el XML: ' + err.message, 'err');
+        setMsg('msgSubir', 'XML no válido.', 'err');
       }
     });
   }
-
-  // ---------- XML ----------
 
   function ns(el, local) {
     if (!el) return '';
@@ -483,8 +474,6 @@
     return { proveedor, factura, fecha, nit, productos };
   }
 
-  // ---------- Lectura de la factura ----------
-
   function normalizarProducto(p) {
     const cantidad = num(p.cantidad);
     const vu = num(p.vu ?? p.valorUnitario ?? p.valor_unitario);
@@ -505,20 +494,20 @@
     };
   }
 
-  function combinarDatos(ia, xml) {
+  function combinarDatos(fuente, xml) {
     const header = {
-      proveedor: String(xml?.proveedor || ia.proveedor || '').trim(),
-      factura: cleanFactura(xml?.factura || ia.factura || ''),
-      fecha: normFecha(xml?.fecha || ia.fecha || ''),
-      nit: String(xml?.nit || ia.nit || '').trim()
+      proveedor: String(xml?.proveedor || fuente.proveedor || '').trim(),
+      factura: cleanFactura(xml?.factura || fuente.factura || ''),
+      fecha: normFecha(xml?.fecha || fuente.fecha || ''),
+      nit: String(xml?.nit || fuente.nit || '').trim()
     };
-    const productosIA = (Array.isArray(ia.productos) ? ia.productos : [])
+    const productosLeidos = (Array.isArray(fuente.productos) ? fuente.productos : [])
       .map(normalizarProducto)
       .filter((p) => p.articulo || p.nombre);
     const productosXml = (Array.isArray(xml?.productos) ? xml.productos : [])
       .map(normalizarProducto)
       .filter((p) => p.articulo || p.nombre);
-    return { ...header, productos: productosIA.length ? productosIA : productosXml };
+    return { ...header, productos: productosLeidos.length ? productosLeidos : productosXml };
   }
 
   function generarTxt(datos) {
@@ -551,7 +540,7 @@
 
   async function generarIngreso() {
     if (!state.soporte) {
-      setMsg('msgSubir', 'Selecciona el PDF o una foto de la factura.', 'err');
+      setMsg('msgSubir', 'Falta el archivo.', 'err');
       return;
     }
     let xml = null;
@@ -563,20 +552,16 @@
       }
     }
     const btn = $('btnGenerar');
-    setBusy(btn, true, 'Leyendo factura...');
-    setMsg('msgSubir', 'Leyendo la factura con IA...', '');
+    setBusy(btn, true, 'Leyendo');
+    setMsg('msgSubir', 'Leyendo factura.', '');
     try {
       let datos = null;
-      let errorIA = '';
       try {
-        const ia = await leerConIA(state.soporte, state.xmlTexto);
-        datos = combinarDatos(ia, xml);
-        if (!datos.productos.length) {
-          errorIA = 'la IA no encontró productos';
-          datos = null;
-        }
+        const leido = await leerFacturaServidor(state.soporte, state.xmlTexto);
+        datos = combinarDatos(leido, xml);
+        if (!datos.productos.length) datos = null;
       } catch (err) {
-        errorIA = err.message || String(err);
+        console.warn(err);
       }
 
       if (datos) {
@@ -585,7 +570,7 @@
         return;
       }
 
-      setMsg('msgSubir', 'La IA no respondió. Leyendo en este dispositivo...', '');
+      setMsg('msgSubir', 'Lectura local.', '');
       await cargarLectorLocal();
       const leido = await window.LectorFactura.leerFactura(state.soporte, (p) => {
         const pct = p && typeof p.progress === 'number' ? ` · ${Math.round(p.progress * 100)}%` : '';
@@ -593,24 +578,14 @@
       });
       const local = combinarDatos(leido, xml);
       if (!local.productos.length && !local.proveedor && !local.factura) {
-        throw new Error('No se pudo leer la factura. Prueba con una foto más nítida, derecha y completa.');
+        throw new Error('No se pudo leer la factura.');
       }
       usarDatos(local);
       setMsg('msgSubir', '');
-      setMsg(
-        'msgRevision',
-        (errorIA ? `La IA no respondió (${errorIA}). ` : '') +
-          'La factura se leyó en este dispositivo; revisa los datos antes de guardar.',
-        ''
-      );
     } catch (err) {
       if (xml && xml.productos && xml.productos.length) {
         usarDatos(combinarDatos({}, xml));
-        setMsg(
-          'msgRevision',
-          'No se pudo leer el PDF o la foto (' + (err.message || err) + '). Se usaron los datos del XML; revisa todo antes de guardar.',
-          'err'
-        );
+        setMsg('msgRevision', 'Datos tomados del XML.', '');
       } else {
         setMsg('msgSubir', err.message || String(err), 'err');
       }
@@ -618,8 +593,6 @@
       setBusy(btn, false);
     }
   }
-
-  // ---------- Revisión ----------
 
   function celdasProductoHTML(p) {
     return `
@@ -631,7 +604,7 @@
       <td><input type="number" step="any" data-k="vu" value="${esc(p.vu)}"></td>
       <td><input type="number" step="any" data-k="total" value="${esc(p.total)}"></td>
       <td><input type="number" step="any" data-k="precio" value="${esc(p.precio)}"></td>
-      <td><button type="button" class="btn-danger btn-icon" data-quitar title="Quitar producto" aria-label="Quitar producto">×</button></td>`;
+      <td><button type="button" class="btn-danger btn-icon" data-quitar title="Quitar producto" aria-label="Quitar producto">Quitar</button></td>`;
   }
 
   function filaProductoHTML(p) {
@@ -750,12 +723,12 @@
       return;
     }
     if (!state.soporte) {
-      setMsg('msgRevision', 'No se encontró el archivo original. Vuelve a subirlo.', 'err');
+      setMsg('msgRevision', 'Falta el archivo original.', 'err');
       return;
     }
 
     const btn = $('btnGuardar');
-    setBusy(btn, true, 'Guardando...');
+    setBusy(btn, true, 'Guardando');
     setMsg('msgRevision', '');
 
     const id = crypto.randomUUID();
@@ -768,7 +741,7 @@
         contentType: mimeDeArchivo(state.soporte),
         upsert: false
       });
-      if (upSoporte.error) throw new Error('No se pudo subir el PDF/foto: ' + upSoporte.error.message);
+      if (upSoporte.error) throw new Error('No se pudo guardar el archivo.');
       subidos.push(soportePath);
 
       if (state.xml) {
@@ -776,7 +749,7 @@
           contentType: state.xml.type || 'application/xml',
           upsert: false
         });
-        if (upXml.error) throw new Error('No se pudo subir el XML: ' + upXml.error.message);
+        if (upXml.error) throw new Error('No se pudo guardar el XML.');
         subidos.push(xmlPath);
       }
 
@@ -797,10 +770,11 @@
         txt_generado: generarTxt(datos),
         informe: null
       });
-      if (error) throw new Error('No se pudo guardar en la base: ' + error.message);
+      if (error) throw new Error('No se pudo guardar.');
 
       limpiarNueva();
-      await abrirFactura(id, { recienGuardada: true });
+      await abrirFactura(id);
+      setMsg('msgDetalle', 'Guardado.', 'ok');
     } catch (err) {
       if (subidos.length) {
         try {
@@ -813,17 +787,15 @@
     }
   }
 
-  // ---------- Lista ----------
-
   async function cargarLista() {
-    setMsg('msgLista', 'Cargando facturas...', '');
+    setMsg('msgLista', 'Cargando.', '');
     const { data, error } = await sb
       .from('facturas')
       .select('id, proveedor, factura, fecha, nit, estado, created_at')
       .order('created_at', { ascending: false });
     if (error) {
       state.lista = [];
-      setMsg('msgLista', 'No se pudieron cargar las facturas: ' + error.message, 'err');
+      setMsg('msgLista', 'No se pudo cargar la lista.', 'err');
     } else {
       state.lista = data || [];
       setMsg('msgLista', '');
@@ -879,29 +851,26 @@
     });
   }
 
-  // ---------- Factura guardada ----------
-
-  async function abrirFactura(id, opts = {}) {
+  async function abrirFactura(id) {
     try {
       const { data, error } = await sb.from('facturas').select('*').eq('id', id).single();
       if (error) throw error;
       state.factura = data;
-      renderFactura(opts);
+      renderFactura();
       nav('factura');
     } catch (err) {
-      setMsg('msgLista', 'No se pudo abrir la factura: ' + (err.message || err), 'err');
+      setMsg('msgLista', 'No se pudo abrir.', 'err');
       nav('lista');
     }
   }
 
-  function renderFactura(opts = {}) {
+  function renderFactura() {
     const f = state.factura;
     if (!f) return;
 
     $('detTitulo').textContent = f.factura || 'Factura';
     $('detProveedorTexto').textContent = f.proveedor || '';
     $('detEstado').innerHTML = badgeEstado(f.estado);
-    $('detGuardadaMsg').hidden = !opts.recienGuardada;
 
     $('detInProveedor').value = f.proveedor || '';
     $('detInFactura').value = f.factura || '';
@@ -918,9 +887,6 @@
     $('informeEntrada').value = '';
     $('informeResultado').textContent = tieneInforme ? f.informe : '';
     mostrar($('btnMarcarIngresada'), tieneInforme && f.estado !== 'ingresada');
-    $('informeAyuda').textContent = tieneInforme
-      ? 'Informe generado. Puedes copiarlo de nuevo.'
-      : 'Pega el texto del sistema contable y genera el informe.';
 
     setMsg('msgDetalle', '');
     setMsg('msgInforme', '');
@@ -947,7 +913,7 @@
     }
 
     const btn = $('btnGuardarCambios');
-    setBusy(btn, true, 'Guardando...');
+    setBusy(btn, true, 'Guardando');
     setMsg('msgDetalle', '');
     try {
       const datos = { ...header, productos };
@@ -973,9 +939,9 @@
       f.txt_generado = txt;
 
       renderFactura();
-      setMsg('msgDetalle', 'Cambios guardados.', 'ok');
+      setMsg('msgDetalle', 'Guardado.', 'ok');
     } catch (err) {
-      setMsg('msgDetalle', 'No se pudieron guardar los cambios: ' + (err.message || err), 'err');
+      setMsg('msgDetalle', 'No se pudo guardar.', 'err');
     } finally {
       setBusy(btn, false);
     }
@@ -984,10 +950,10 @@
   async function eliminarFactura() {
     const f = state.factura;
     if (!f) return;
-    if (!confirm(`¿Eliminar la factura ${f.factura}? También se borrarán los archivos.`)) return;
+    if (!confirm(`¿Eliminar la factura ${f.factura}?`)) return;
 
     const btn = $('btnEliminar');
-    setBusy(btn, true, 'Eliminando...');
+    setBusy(btn, true, 'Eliminando');
     try {
       const { error } = await sb.from('facturas').delete().eq('id', f.id);
       if (error) throw error;
@@ -1000,7 +966,7 @@
       state.factura = null;
       await irLista();
     } catch (err) {
-      setMsg('msgDetalle', 'No se pudo eliminar: ' + (err.message || err), 'err');
+      setMsg('msgDetalle', 'No se pudo eliminar.', 'err');
     } finally {
       setBusy(btn, false);
     }
@@ -1008,7 +974,7 @@
 
   async function descargarArchivo(path, nombre, btn) {
     if (!path) return;
-    setBusy(btn, true, 'Preparando...');
+    setBusy(btn, true, 'Descargando');
     try {
       const { data, error } = await sb.storage
         .from('facturas')
@@ -1023,13 +989,11 @@
       a.click();
       a.remove();
     } catch (err) {
-      setMsg('msgDetalle', 'No se pudo descargar: ' + (err.message || err), 'err');
+      setMsg('msgDetalle', 'No se pudo descargar.', 'err');
     } finally {
       setBusy(btn, false);
     }
   }
-
-  // ---------- Informe ----------
 
   function parsearTextoInforme(texto) {
     const t = String(texto || '').replace(/\r\n/g, '\n').trim();
@@ -1076,11 +1040,7 @@
     if (!f) return;
     const filas = parsearTextoInforme($('informeEntrada').value);
     if (!filas.length) {
-      setMsg(
-        'msgInforme',
-        'No se encontraron productos en el texto. Revisa que tenga el formato de 7 líneas por producto.',
-        'err'
-      );
+      setMsg('msgInforme', 'No se encontraron productos.', 'err');
       return;
     }
 
@@ -1097,11 +1057,7 @@
       if (error) throw error;
       f.informe = informe;
     } catch (err) {
-      setMsg(
-        'msgInforme',
-        'El informe se generó, pero no se pudo guardar en la base: ' + (err.message || err),
-        'err'
-      );
+      setMsg('msgInforme', 'Informe no guardado.', 'err');
     }
   }
 
@@ -1110,7 +1066,7 @@
     if (!texto) return;
     try {
       await navigator.clipboard.writeText(texto);
-      setMsg('msgInforme', 'Informe copiado.', 'ok');
+      setMsg('msgInforme', 'Copiado.', 'ok');
     } catch {
       const ta = document.createElement('textarea');
       ta.value = texto;
@@ -1120,9 +1076,9 @@
       ta.select();
       try {
         document.execCommand('copy');
-        setMsg('msgInforme', 'Informe copiado.', 'ok');
+        setMsg('msgInforme', 'Copiado.', 'ok');
       } catch {
-        setMsg('msgInforme', 'No se pudo copiar. Selecciona el texto manualmente.', 'err');
+        setMsg('msgInforme', 'No se pudo copiar.', 'err');
       }
       ta.remove();
     }
@@ -1132,7 +1088,7 @@
     const f = state.factura;
     if (!f || f.estado === 'ingresada') return;
     const btn = $('btnMarcarIngresada');
-    setBusy(btn, true, 'Guardando...');
+    setBusy(btn, true, 'Guardando');
     try {
       const ahora = new Date().toISOString();
       const { error } = await sb
@@ -1144,20 +1100,18 @@
       f.ingresada_at = ahora;
       $('detEstado').innerHTML = badgeEstado('ingresada');
       mostrar(btn, false);
-      setMsg('msgInforme', 'Factura marcada como ingresada.', 'ok');
+      setMsg('msgInforme', 'Ingresada.', 'ok');
       const enLista = state.lista.find((r) => r.id === f.id);
       if (enLista) {
         enLista.estado = 'ingresada';
         enLista.ingresada_at = ahora;
       }
     } catch (err) {
-      setMsg('msgInforme', 'No se pudo marcar como ingresada: ' + (err.message || err), 'err');
+      setMsg('msgInforme', 'No se pudo guardar.', 'err');
     } finally {
       setBusy(btn, false);
     }
   }
-
-  // ---------- Eventos ----------
 
   function wireEventos() {
     $('btnGenerar').addEventListener('click', generarIngreso);

@@ -84,22 +84,22 @@ export default async function handler(req, res) {
   if (!key) {
     return res.status(500).json({
       ok: false,
-      error: 'Falta configurar la clave de Gemini en el servidor (GEMINI_API_KEY).'
+      error: 'Servidor sin clave.'
     });
   }
 
   const { archivoBase64, archivoMime, xmlTexto } = req.body || {};
 
   if (!archivoBase64 || typeof archivoBase64 !== 'string') {
-    return res.status(400).json({ ok: false, error: 'No se recibió el archivo.' });
+    return res.status(400).json({ ok: false, error: 'Falta el archivo.' });
   }
   if (!MIMES.includes(archivoMime)) {
-    return res.status(400).json({ ok: false, error: 'Formato de archivo no compatible.' });
+    return res.status(400).json({ ok: false, error: 'Formato no válido.' });
   }
   if (archivoBase64.length > 6000000) {
     return res.status(413).json({
       ok: false,
-      error: 'El archivo es demasiado grande. Usa una foto más liviana o un PDF más pequeño.'
+      error: 'Archivo demasiado grande.'
     });
   }
 
@@ -149,8 +149,8 @@ export default async function handler(req, res) {
         return res.status(timeout ? 504 : 502).json({
           ok: false,
           error: timeout
-            ? 'La IA tardó demasiado en responder. Intenta de nuevo.'
-            : 'No se pudo conectar con la IA.'
+            ? 'Tiempo de espera agotado.'
+            : 'Sin conexión con el servicio.'
         });
       }
       if (!ocupado(resp.status) && !sinCupo(resp.status)) break;
@@ -160,23 +160,22 @@ export default async function handler(req, res) {
   }
 
   if (!resp.ok) {
-    let detalle = '';
     try {
       const errJson = await resp.json();
-      detalle = errJson?.error?.message || '';
+      const detalle = errJson?.error?.message;
+      if (detalle) console.error('Gemini:', detalle);
     } catch {}
     const mensajes = {
-      400: 'La IA no pudo procesar el archivo. Revisa que sea un PDF o una foto legible.',
-      401: 'La clave de Gemini no es válida. Revisa GEMINI_API_KEY.',
-      403: 'La clave de Gemini no tiene permisos. Revisa GEMINI_API_KEY.',
-      404: 'El modelo de IA no está disponible. Revisa GEMINI_MODEL.',
-      429: 'La IA alcanzó su límite gratuito (por minuto o por día). Espera un momento y vuelve a intentar; si persiste, el cupo se renueva mañana o puedes activar facturación en Google AI Studio.',
-      503: 'La IA está saturada en este momento. Espera unos segundos y vuelve a intentar.'
+      400: 'No se pudo procesar el archivo.',
+      401: 'Clave no válida.',
+      403: 'Clave sin permisos.',
+      404: 'Modelo no disponible.',
+      429: 'Cupo agotado.',
+      503: 'Servicio ocupado.'
     };
-    const msg = mensajes[resp.status] || `La IA respondió con un error (${resp.status}).`;
     return res.status(resp.status === 429 ? 429 : 502).json({
       ok: false,
-      error: msg + (detalle ? ' ' + detalle.slice(0, 200) : '')
+      error: mensajes[resp.status] || `Error ${resp.status}.`
     });
   }
 
@@ -184,20 +183,20 @@ export default async function handler(req, res) {
   try {
     data = await resp.json();
   } catch {
-    return res.status(502).json({ ok: false, error: 'La IA devolvió una respuesta ilegible.' });
+    return res.status(502).json({ ok: false, error: 'Respuesta no válida.' });
   }
 
   const candidato = data?.candidates?.[0];
   if (!candidato) {
     return res.status(502).json({
       ok: false,
-      error: 'La IA no devolvió resultados. Intenta con una foto más nítida.'
+      error: 'Sin resultados.'
     });
   }
   if (candidato.finishReason === 'MAX_TOKENS') {
     return res.status(502).json({
       ok: false,
-      error: 'La factura tiene demasiados productos para procesarla de una vez. Intenta con una foto más nítida.'
+      error: 'Demasiados productos.'
     });
   }
 
@@ -213,14 +212,14 @@ export default async function handler(req, res) {
   } catch {
     return res.status(502).json({
       ok: false,
-      error: 'La IA no devolvió los datos en el formato esperado. Intenta de nuevo.'
+      error: 'Datos no válidos.'
     });
   }
 
   if (!datos || typeof datos !== 'object' || !Array.isArray(datos.productos)) {
     return res.status(502).json({
       ok: false,
-      error: 'La IA no devolvió la lista de productos. Intenta de nuevo.'
+      error: 'Sin productos.'
     });
   }
 

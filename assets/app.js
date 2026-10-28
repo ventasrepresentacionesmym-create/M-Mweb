@@ -177,6 +177,7 @@
     $(PANTALLA_IDS[nombre]).hidden = false;
     state.pantalla = nombre;
     $('btnVolver').hidden = nombre === 'subir';
+    $('btnLista').hidden = nombre === 'lista';
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 

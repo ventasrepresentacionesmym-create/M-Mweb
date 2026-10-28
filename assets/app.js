@@ -274,7 +274,7 @@
 
     let bitmap;
     try {
-      bitmap = await createImageBitmap(file);
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     } catch {
       throw new Error(
         'No se pudo abrir la imagen. Si es una foto de iPhone en formato HEIC, guárdala como JPG o toma la foto de nuevo.'

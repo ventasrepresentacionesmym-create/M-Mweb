@@ -98,7 +98,7 @@ const server = http.createServer(async (req, res) => {
           }
         }
       }
-      const { default: handler } = await import('./api/extraer.js');
+      const { default: handler } = await import('./api/extraer.mjs');
       await handler({ method: req.method, body, headers: req.headers }, respuesta(res));
     } catch (err) {
       console.error('Error en /api/extraer:', err);

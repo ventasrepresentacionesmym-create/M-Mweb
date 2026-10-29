@@ -14,6 +14,7 @@
     subir: 'pantallaSubir',
     revision: 'pantallaRevision',
     lista: 'pantallaLista',
+    inventario: 'pantallaInventario',
     factura: 'pantallaFactura'
   };
 
@@ -178,7 +179,9 @@
     state.pantalla = nombre;
     $('btnVolver').hidden = nombre === 'subir';
     $('btnLista').hidden = nombre === 'lista';
+    $('btnInventario').hidden = nombre === 'inventario';
     window.scrollTo({ top: 0, behavior: 'auto' });
+    if (nombre === 'inventario' && window.Inventario) window.Inventario.abrir();
   }
 
   function volver() {
@@ -189,6 +192,10 @@
       return;
     }
     if (state.pantalla === 'lista') {
+      nav('subir');
+      return;
+    }
+    if (state.pantalla === 'inventario') {
       nav('subir');
       return;
     }
@@ -1118,6 +1125,7 @@
     $('btnGenerar').addEventListener('click', generarIngreso);
     $('btnVolver').addEventListener('click', volver);
     $('btnLista').addEventListener('click', irLista);
+    $('btnInventario').addEventListener('click', () => nav('inventario'));
     $('btnGuardar').addEventListener('click', guardarNueva);
     $('btnAgregarProducto').addEventListener('click', () => agregarFila($('revProductos')));
     $('btnAgregarProductoDet').addEventListener('click', () => agregarFila($('detProductos')));

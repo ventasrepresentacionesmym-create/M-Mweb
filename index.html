@@ -17,6 +17,7 @@
     </div>
     <nav class="header-actions">
       <button type="button" class="btn-ghost" id="btnVolver" hidden>Volver</button>
+      <button type="button" class="btn-ghost" id="btnInventario">Inventario</button>
       <button type="button" class="btn-ghost" id="btnLista">Facturas guardadas</button>
     </nav>
   </header>
@@ -133,6 +134,99 @@
     </div>
   </section>
 
+  <section id="pantallaInventario" class="pantalla" hidden>
+    <div class="page-head" id="invHead">
+      <div>
+        <h1>Inventario</h1>
+        <p class="sub" id="invSub">Artículos y existencias</p>
+      </div>
+    </div>
+
+    <div id="invCarga">
+      <div class="card">
+        <div class="files">
+          <div class="filebox estatico">
+            <span class="filebox-title">Carpeta</span>
+            <span class="filebox-name">Listado de artículos y resumen de existencias.</span>
+            <div class="row-btns">
+              <button type="button" class="btn-ghost btn-sm" id="invConectar">Conectar carpeta</button>
+            </div>
+          </div>
+          <label class="filebox" for="invArchivos">
+            <span class="filebox-title">Archivos</span>
+            <input type="file" id="invArchivos" class="sr-only" accept=".xls,.xlsx,.htm,.html" multiple>
+            <span class="filebox-name" id="invArchivosNombre">Arrastra o selecciona los dos archivos.</span>
+          </label>
+        </div>
+        <div class="msg" id="invMsg"></div>
+      </div>
+    </div>
+
+    <div id="invTabla" hidden>
+      <div class="card">
+        <div class="inv-toolbar">
+          <input type="search" id="invBusqueda" placeholder="Buscar por código, nombre o proveedor" autocomplete="off">
+          <button type="button" class="btn-ghost btn-sm" id="invActualizar">Actualizar</button>
+          <button type="button" class="btn-ghost btn-sm" id="invLimpiar">Limpiar filtros</button>
+          <button type="button" class="btn-ghost btn-sm" id="invCambiar">Cambiar archivos</button>
+          <button type="button" class="btn-ghost btn-sm" id="invBtnMov">Movimientos</button>
+          <span class="inv-cuenta" id="invCuenta"></span>
+        </div>
+        <div class="msg" id="invAviso"></div>
+        <div class="inv-tabla">
+          <div class="inv-inner">
+            <div class="inv-fila inv-cabecera" id="invCabecera">
+              <div class="c-detalle">Detalle</div>
+              <div class="c-codigo" data-key="codigo">Código</div>
+              <div class="c-nombre" data-key="nombre">Nombre</div>
+              <div class="c-proveedor" data-key="proveedor">Proveedor</div>
+              <div class="c-iva" data-key="iva">Iva</div>
+              <div class="c-exi" data-key="exi">Exi</div>
+              <div class="c-costo" data-key="costo">Costo</div>
+            </div>
+            <div class="inv-fila inv-filtros">
+              <div class="c-detalle"></div>
+              <div class="c-codigo"><input type="text" data-colfilter="codigo" placeholder="Filtrar" autocomplete="off"></div>
+              <div class="c-nombre"><input type="text" data-colfilter="nombre" placeholder="Filtrar" autocomplete="off"></div>
+              <div class="c-proveedor"><select data-colfilter="proveedor"><option value="">Todos</option></select></div>
+              <div class="c-iva"><select data-colfilter="iva"><option value="">Todos</option></select></div>
+              <div class="c-exi"><input type="text" data-colfilter="exi" placeholder="Filtrar" autocomplete="off"></div>
+              <div class="c-costo"><input type="text" data-colfilter="costo" placeholder="Filtrar" autocomplete="off"></div>
+            </div>
+            <div class="inv-viewport" id="invViewport">
+              <div class="inv-scroller" id="invScroller">
+                <div class="inv-ventana" id="invVentana"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="empty" id="invVacio" hidden>Sin artículos.</p>
+      </div>
+    </div>
+
+    <div id="invMov" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Movimientos</h1>
+          <p class="sub" id="invMovSub">Entradas y salidas del artículo</p>
+        </div>
+        <div class="row-btns no-margin">
+          <button type="button" class="btn-ghost" id="invMovOtro" hidden>Cargar otro archivo</button>
+          <button type="button" class="btn-ghost" id="invMovVolver">Volver a inventario</button>
+        </div>
+      </div>
+      <div class="card" id="invMovCarga">
+        <label class="filebox" for="invMovArchivo">
+          <span class="filebox-title">Archivo de movimientos</span>
+          <input type="file" id="invMovArchivo" class="sr-only" accept=".xls,.xlsx,.htm,.html">
+          <span class="filebox-name">Arrastra o selecciona el archivo.</span>
+        </label>
+        <div class="msg" id="invMovMsg"></div>
+      </div>
+      <div id="invMovSalida"></div>
+    </div>
+  </section>
+
   <section id="pantallaFactura" class="pantalla" hidden>
     <div class="detail-head">
       <div>
@@ -204,8 +298,22 @@
     </div>
   </section>
 </div>
+
+<div class="modal-overlay" id="invModal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="invModalNombre">
+    <div class="modal-head">
+      <button type="button" class="modal-close" id="invModalCerrar" aria-label="Cerrar">&times;</button>
+      <div class="modal-codigo" id="invModalCodigo"></div>
+      <div class="modal-nombre" id="invModalNombre"></div>
+      <p class="sub modal-sub" id="invModalSub"></p>
+    </div>
+    <div class="modal-body" id="invModalBody"></div>
+  </div>
+</div>
+
 <script src="assets/vendor/supabase.js"></script>
 <script src="assets/config.js"></script>
 <script src="assets/app.js"></script>
+<script src="assets/inventario.js"></script>
 </body>
 </html>

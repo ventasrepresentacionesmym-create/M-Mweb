@@ -300,6 +300,114 @@ tbody tr:last-child td { border-bottom: 0; }
 details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 details summary:hover { color: var(--ink); }
 
+.filebox.estatico { cursor: default; }
+.filebox.estatico:hover { border-color: var(--line-strong); }
+.filebox.sobre { border-color: var(--ink); }
+.filebox .row-btns { margin-top: 12px; }
+
+.inv-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.inv-toolbar input[type="search"] { flex: 1 1 260px; max-width: 360px; }
+.inv-cuenta { margin-left: auto; font-size: 12.5px; color: var(--faint); }
+
+.inv-tabla { overflow-x: auto; margin-top: 8px; }
+.inv-inner { min-width: 900px; }
+.inv-fila { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.inv-fila > div { padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-fila > .c-detalle { width: 76px; flex: 0 0 auto; padding: 0; text-align: center; }
+.inv-fila > .c-codigo { width: 120px; flex: 0 0 auto; }
+.inv-fila > .c-nombre { flex: 1 1 auto; min-width: 0; }
+.inv-fila > .c-proveedor { width: 185px; flex: 0 0 auto; }
+.inv-fila > .c-iva { width: 84px; flex: 0 0 auto; text-align: right; }
+.inv-fila > .c-exi { width: 105px; flex: 0 0 auto; text-align: right; }
+.inv-fila > .c-costo { width: 115px; flex: 0 0 auto; text-align: right; }
+
+.inv-cabecera {
+  height: 38px;
+  border-bottom: 1px solid var(--line-strong);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  cursor: pointer;
+  user-select: none;
+}
+.inv-cabecera > div { display: flex; align-items: center; }
+.inv-cabecera > div.c-iva, .inv-cabecera > div.c-exi, .inv-cabecera > div.c-costo { justify-content: flex-end; }
+.inv-cabecera > div:hover { color: var(--ink); }
+.inv-cabecera .arrow { margin-left: 4px; font-size: 9px; }
+
+.inv-filtros { height: 46px; }
+.inv-filtros > div { display: flex; align-items: center; }
+.inv-filtros input, .inv-filtros select {
+  padding: 6px 8px;
+  font-size: 12.5px;
+  border-radius: 5px;
+  border-color: var(--line);
+}
+
+.inv-viewport { height: clamp(300px, 58vh, 640px); overflow: auto; position: relative; }
+.inv-scroller { position: relative; }
+.inv-ventana { position: absolute; left: 0; right: 0; top: 0; }
+.inv-fila.dato { height: 40px; }
+.inv-fila.dato:hover { background: var(--soft); }
+.inv-ver { padding: 3px 10px; font-size: 11.5px; line-height: 1.4; border-radius: 5px; color: var(--muted); }
+.inv-ver:hover { color: var(--ink); }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(16, 16, 16, .45);
+}
+.modal-box {
+  background: var(--bg);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 620px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-head { padding: 20px 24px; border-bottom: 1px solid var(--line); position: relative; }
+.modal-codigo { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.modal-nombre { font-size: 18px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; margin-top: 6px; padding-right: 36px; }
+.modal-sub { margin-top: 6px; }
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 24px;
+  line-height: 1;
+  padding: 2px 8px;
+}
+.modal-close:hover { background: none; color: var(--ink); }
+.modal-body { overflow-y: auto; }
+.modal-body table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.modal-body th, .modal-body td { padding: 10px 24px; }
+.modal-body tr:last-child td { border-bottom: 0; }
+.modal-body .empty { padding: 24px; }
+
+.inv-num { text-align: right; font-variant-numeric: tabular-nums; }
+.inv-doc { font-weight: 500; }
+.inv-mov-cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+.inv-mov-cab strong { font-size: 18px; font-weight: 600; }
+.inv-mov-cab .sub { margin-top: 2px; }
+.inv-mov-total { text-align: right; }
+.inv-mov-total span { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.inv-mov-total b { font-size: 20px; font-weight: 600; }
+.inv-mov-sec { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+#invMov .card { padding: 0; overflow-x: auto; }
+
 @media (max-width: 640px) {
   body { padding: 0 16px 56px; }
   .app-header { padding: 14px 0; margin-bottom: 24px; }
@@ -309,6 +417,12 @@ details summary:hover { color: var(--ink); }
   .tabla-productos input { font-size: 16px; }
   .tabla-lista { min-width: 0; }
   .tabla-lista th:nth-child(4), .tabla-lista td:nth-child(4) { display: none; }
+  .header-actions { gap: 16px; }
+  .inv-toolbar input[type="search"] { flex: 1 1 100%; max-width: none; }
+  .inv-cuenta { margin-left: 0; }
+  .inv-viewport { height: clamp(280px, 52vh, 520px); }
+  .modal-head { padding: 18px; }
+  .modal-body th, .modal-body td { padding: 10px 16px; }
   .row-btns button { flex: 1 1 auto; }
   .toolbar input { max-width: none; }
 }

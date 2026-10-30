@@ -39,7 +39,7 @@ const ESQUEMA = {
   required: ['proveedor', 'factura', 'fecha', 'nit', 'productos']
 };
 
-function construirPrompt(xmlTexto) {
+function construirPrompt(textoAnexo) {
   let prompt = `Eres un asistente especializado en leer facturas electrónicas colombianas y extraer datos para un sistema contable.
 
 Analiza el archivo adjunto (PDF o imagen de una factura) y devuelve únicamente un JSON válido con los datos.
@@ -61,14 +61,14 @@ Reglas:
 - Si el documento tiene varias páginas, léelas todas.
 - No incluyas explicaciones, texto adicional ni bloques de código: solo el JSON.`;
 
-  if (xmlTexto) {
+  if (textoAnexo) {
     prompt += `
 
-Además, se incluye el texto del XML de la misma factura. Úsalo para confirmar el NIT, el número de factura y la fecha; si hay diferencias en esos tres datos, prioriza el XML.
+Además, se incluye el texto de apoyo de la misma factura. Úsalo para completar y confirmar los datos y para trabajar más rápido: si ya trae la tabla de productos, tómala de ahí en el mismo orden y usa el archivo adjunto solo para completar lo que falte. Si hay diferencias, prioriza el texto.
 
-Texto del XML:
+Texto de apoyo:
 ---
-${xmlTexto}
+${textoAnexo}
 ---`;
   }
 
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { archivoBase64, archivoMime, xmlTexto } = req.body || {};
+  const { archivoBase64, archivoMime, textoAnexo } = req.body || {};
 
   if (!archivoBase64 || typeof archivoBase64 !== 'string') {
     return res.status(400).json({ ok: false, error: 'Falta el archivo.' });
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const xml = typeof xmlTexto === 'string' ? xmlTexto.slice(0, 150000) : '';
+  const anexo = typeof textoAnexo === 'string' ? textoAnexo.slice(0, 150000) : '';
   const modelo = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   const modelos = [...new Set([modelo, 'gemini-3.6-flash', 'gemini-3.5-flash'])];
 
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
       {
         role: 'user',
         parts: [
-          { text: construirPrompt(xml) },
+          { text: construirPrompt(anexo) },
           { inline_data: { mime_type: archivoMime, data: archivoBase64 } }
         ]
       }

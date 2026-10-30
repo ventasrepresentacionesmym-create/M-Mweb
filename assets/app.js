@@ -14,15 +14,18 @@
     subir: 'pantallaSubir',
     revision: 'pantallaRevision',
     lista: 'pantallaLista',
+    terceros: 'pantallaTerceros',
     inventario: 'pantallaInventario',
     factura: 'pantallaFactura'
   };
 
   const state = {
     pantalla: 'subir',
+    modo: 'ia',
     soporte: null,
-    xml: null,
-    xmlTexto: '',
+    anexo: null,
+    anexoTexto: '',
+    anexoTipo: '',
     datos: null,
     txtGenerado: '',
     factura: null,
@@ -165,6 +168,33 @@
     if (el) el.hidden = !visible;
   }
 
+  const avisoTimers = {};
+
+  function actualizarAvisoPago(prefix) {
+    const el = $(prefix === 'rev' ? 'revAvisoPago' : 'detAvisoPago');
+    const nitEl = $(prefix === 'rev' ? 'revNit' : 'detInNit');
+    const provEl = $(prefix === 'rev' ? 'revProveedor' : 'detInProveedor');
+    if (!el || !nitEl || !provEl || !window.Terceros) return;
+    const token = (avisoTimers[prefix + '_token'] = (avisoTimers[prefix + '_token'] || 0) + 1);
+    window.Terceros.buscar(nitEl.value, provEl.value)
+      .then((row) => {
+        if (avisoTimers[prefix + '_token'] !== token) return;
+        const html = window.Terceros.texto(row);
+        el.innerHTML = html;
+        el.hidden = !html;
+      })
+      .catch(() => {
+        if (avisoTimers[prefix + '_token'] !== token) return;
+        el.innerHTML = '';
+        el.hidden = true;
+      });
+  }
+
+  function programarAvisoPago(prefix) {
+    clearTimeout(avisoTimers[prefix]);
+    avisoTimers[prefix] = setTimeout(() => actualizarAvisoPago(prefix), 250);
+  }
+
   function badgeEstado(estado) {
     return estado === 'ingresada'
       ? '<span class="badge badge-ok">Ingresada</span>'
@@ -179,9 +209,11 @@
     state.pantalla = nombre;
     $('btnVolver').hidden = nombre === 'subir';
     $('btnLista').hidden = nombre === 'lista';
-    $('btnInventario').hidden = nombre === 'inventario';
+    $('btnInventario').hidden = ['inventario', 'revision', 'factura'].includes(nombre);
+    $('btnTerceros').hidden = ['terceros', 'revision', 'factura'].includes(nombre);
     window.scrollTo({ top: 0, behavior: 'auto' });
     if (nombre === 'inventario' && window.Inventario) window.Inventario.abrir();
+    if (nombre === 'terceros' && window.Terceros) window.Terceros.abrir();
   }
 
   function volver() {
@@ -192,6 +224,10 @@
       return;
     }
     if (state.pantalla === 'lista') {
+      nav('subir');
+      return;
+    }
+    if (state.pantalla === 'terceros') {
       nav('subir');
       return;
     }
@@ -218,20 +254,23 @@
 
   function limpiarNueva() {
     state.soporte = null;
-    state.xml = null;
-    state.xmlTexto = '';
+    state.anexo = null;
+    state.anexoTexto = '';
+    state.anexoTipo = '';
     state.datos = null;
     state.txtGenerado = '';
     $('soporteFile').value = '';
-    $('xmlFile').value = '';
+    $('anexoFile').value = '';
     $('soporteNombre').textContent = 'Ningún archivo';
-    $('xmlNombre').textContent = 'Ningún archivo';
+    $('anexoNombre').textContent = 'Ningún archivo';
     $('revProveedor').value = '';
     $('revFactura').value = '';
     $('revFecha').value = '';
     $('revNit').value = '';
     $('revProductos').innerHTML = '';
     $('revTxt').textContent = '';
+    $('revAvisoPago').hidden = true;
+    $('revAvisoPago').innerHTML = '';
     setMsg('msgSubir', '');
     setMsg('msgRevision', '');
   }
@@ -242,6 +281,9 @@
     if (/\.png$/i.test(file.name)) return 'image/png';
     if (/\.webp$/i.test(file.name)) return 'image/webp';
     if (/\.hei[cf]$/i.test(file.name)) return 'image/heic';
+    if (/\.xml$/i.test(file.name)) return 'application/xml';
+    if (/\.html?$/i.test(file.name)) return 'text/html';
+    if (/\.txt$/i.test(file.name)) return 'text/plain';
     return 'image/jpeg';
   }
 
@@ -253,6 +295,9 @@
     if (tipo === 'image/png') return 'png';
     if (tipo === 'image/webp') return 'webp';
     if (tipo === 'image/heic') return 'heic';
+    if (tipo === 'application/xml') return 'xml';
+    if (tipo === 'text/html') return 'html';
+    if (tipo === 'text/plain') return 'txt';
     return 'jpg';
   }
 
@@ -321,12 +366,16 @@
     return lectorLocal;
   }
 
-  async function leerFacturaServidor(file, xmlTexto) {
+  async function leerFacturaServidor(file, textoAnexo) {
     const { base64, mime } = await prepararArchivo(file);
     const resp = await fetch('/api/extraer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ archivoBase64: base64, archivoMime: mime, xmlTexto: xmlTexto || '' })
+      body: JSON.stringify({
+        archivoBase64: base64,
+        archivoMime: mime,
+        textoAnexo: textoAnexo || ''
+      })
     });
     let json;
     try {
@@ -361,29 +410,69 @@
       $('soporteNombre').textContent = `${f.name} · ${bytes(f.size)}`;
     });
 
-    $('xmlFile').addEventListener('change', async (e) => {
+    $('anexoFile').addEventListener('change', async (e) => {
       const f = e.target.files[0];
       setMsg('msgSubir', '');
       if (!f) {
-        state.xml = null;
-        state.xmlTexto = '';
-        $('xmlNombre').textContent = 'Ningún archivo';
+        limpiarAnexo();
         return;
       }
+      let tipo = '';
       try {
         const texto = await f.text();
-        if (!texto.includes('<')) throw new Error('XML no válido.');
-        state.xml = f;
-        state.xmlTexto = texto;
-        $('xmlNombre').textContent = `${f.name} · ${bytes(f.size)}`;
+        tipo = tipoDeAnexo(f, texto);
+        if (!tipo) throw new Error('Formato no válido.');
+        let n = 0;
+        try {
+          let datos;
+          if (tipo === 'xml') datos = parseXml(texto);
+          else if (tipo === 'txt') datos = parseTxtFactura(texto);
+          else datos = parseHtmlFactura(texto).datos;
+          n = (datos.productos || []).length;
+        } catch {}
+        state.anexo = f;
+        state.anexoTexto = texto;
+        state.anexoTipo = tipo;
+        const detalle = n ? ` · ${n} producto${n === 1 ? '' : 's'}` : ' · apoyo';
+        $('anexoNombre').textContent = `${f.name} · ${bytes(f.size)}${detalle}`;
       } catch (err) {
-        state.xml = null;
-        state.xmlTexto = '';
+        limpiarAnexo();
         e.target.value = '';
-        $('xmlNombre').textContent = 'Ningún archivo';
-        setMsg('msgSubir', 'XML no válido.', 'err');
+        setMsg('msgSubir', tipo ? 'No se pudo leer el documento.' : 'Formato no válido.', 'err');
       }
     });
+  }
+
+  function limpiarAnexo() {
+    state.anexo = null;
+    state.anexoTexto = '';
+    state.anexoTipo = '';
+    $('anexoNombre').textContent = 'Ningún archivo';
+  }
+
+  function setModo(modo) {
+    state.modo = modo;
+    document.querySelectorAll('#modoLectura .seg-btn').forEach((b) => {
+      const activo = b.dataset.modo === modo;
+      b.classList.toggle('active', activo);
+      b.setAttribute('aria-checked', activo ? 'true' : 'false');
+    });
+    $('soporteHint').textContent =
+      modo === 'ia' ? 'Se lee con IA. Consume cupo.' : 'Opcional. Se guarda como original.';
+    $('anexoHint').textContent =
+      modo === 'ia' ? 'Opcional. La IA lo usa de apoyo.' : 'Los datos salen del archivo. No se usa IA.';
+    setMsg('msgSubir', '');
+  }
+
+  function tipoDeAnexo(file, texto) {
+    const nombre = String(file.name || '').toLowerCase();
+    const s = String(texto || '').trim();
+    if (/\.xml$/i.test(nombre)) return 'xml';
+    if (/\.html?$/i.test(nombre)) return 'html';
+    if (/\.txt$/i.test(nombre)) return 'txt';
+    if (/^<\?xml/i.test(s) || /<[a-z0-9]*:?Invoice[\s>]/i.test(s)) return 'xml';
+    if (/<html[\s>]|<!doctype html/i.test(s)) return 'html';
+    return s ? 'txt' : '';
   }
 
   function ns(el, local) {
@@ -482,6 +571,262 @@
     return { proveedor, factura, fecha, nit, productos };
   }
 
+  function normalizarClave(s) {
+    return String(s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  const CLAVES = {
+    proveedor: 'proveedor',
+    'razon social': 'proveedor',
+    'nombre proveedor': 'proveedor',
+    factura: 'factura',
+    'numero de factura': 'factura',
+    'no factura': 'factura',
+    'no. factura': 'factura',
+    'factura no': 'factura',
+    'factura nro': 'factura',
+    'nro factura': 'factura',
+    fecha: 'fecha',
+    'fecha de expedicion': 'fecha',
+    nit: 'nit',
+    'nit proveedor': 'nit',
+    'nit del proveedor': 'nit',
+    identificacion: 'nit',
+    articulo: 'articulo',
+    codigo: 'articulo',
+    referencia: 'articulo',
+    ref: 'articulo',
+    sku: 'articulo',
+    item: 'articulo',
+    nombre: 'nombre',
+    descripcion: 'nombre',
+    producto: 'nombre',
+    detalle: 'nombre',
+    invima: 'invima',
+    registro: 'invima',
+    'registro sanitario': 'invima',
+    presentacion: 'presentacion',
+    lote: 'lote',
+    vencimiento: 'vencimiento',
+    'fecha de vencimiento': 'vencimiento',
+    cantidad: 'cantidad',
+    cant: 'cantidad',
+    unidades: 'cantidad',
+    'v/u': 'vu',
+    vu: 'vu',
+    'valor unitario': 'vu',
+    'vr unitario': 'vu',
+    unitario: 'vu',
+    'precio unitario': 'vu',
+    total: 'total',
+    'valor total': 'total',
+    precio: 'precio'
+  };
+
+  function parseTxtFactura(texto) {
+    const datos = { proveedor: '', factura: '', fecha: '', nit: '', productos: [] };
+    let actual = null;
+    const cerrar = () => {
+      if (actual && (actual.articulo || actual.nombre)) datos.productos.push(actual);
+      actual = null;
+    };
+    const nuevo = (articulo) => ({
+      articulo: articulo || '',
+      nombre: '',
+      invima: '0',
+      presentacion: '',
+      lote: '',
+      vencimiento: '',
+      cantidad: '',
+      vu: '',
+      total: '',
+      precio: ''
+    });
+
+    for (const linea of String(texto || '').replace(/\r\n?/g, '\n').split('\n')) {
+      const t = linea.trim();
+      if (!t) continue;
+      const m = t.match(/^([^:]{2,40}):\s*(.*)$/);
+      if (!m) continue;
+      const clave = CLAVES[normalizarClave(m[1])];
+      if (!clave) continue;
+      const valor = m[2].trim();
+      if (clave === 'proveedor' || clave === 'factura' || clave === 'fecha' || clave === 'nit') {
+        if (clave === 'proveedor' || clave === 'factura') cerrar();
+        if (!datos[clave]) datos[clave] = valor;
+        continue;
+      }
+      if (clave === 'articulo') {
+        cerrar();
+        actual = nuevo(valor);
+        continue;
+      }
+      if (!actual) {
+        if (clave === 'nombre') actual = nuevo('');
+        else continue;
+      }
+      actual[clave] = valor;
+    }
+    cerrar();
+
+    for (const p of datos.productos) {
+      if (!p.presentacion) p.presentacion = presentacionDe(p.lote, p.vencimiento);
+      p.vu = numMonto(p.vu);
+      delete p.lote;
+      delete p.vencimiento;
+    }
+    return datos;
+  }
+
+  function numMonto(v) {
+    let s = String(v ?? '').trim().replace(/[^\d.,-]/g, '');
+    if (!s) return '';
+    if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    else if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (s.includes(',')) s = s.replace(',', '.');
+    return s;
+  }
+
+  const COLUMNAS = {
+    articulo: ['articulo', 'codigo', 'referencia', 'ref', 'sku', 'item'],
+    nombre: ['nombre', 'descripcion', 'producto', 'detalle'],
+    invima: ['invima', 'registro', 'registro sanitario', 'rs'],
+    presentacion: ['presentacion', 'lote y vencimiento'],
+    lote: ['lote'],
+    vencimiento: ['vencimiento', 'fecha de vencimiento', 'f vencimiento', 'expira'],
+    cantidad: ['cantidad', 'cant', 'unidades'],
+    vu: ['v/u', 'vu', 'valor unitario', 'vr unitario', 'unitario', 'precio unitario'],
+    total: ['total', 'valor total'],
+    precio: ['precio']
+  };
+
+  function normalizarCol(s) {
+    return normalizarClave(s).replace(/[.:]/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  function mapearCabecera(celdas) {
+    const mapa = {};
+    for (let i = 0; i < celdas.length; i++) {
+      const t = normalizarCol(celdas[i]);
+      if (!t) continue;
+      for (const k of Object.keys(COLUMNAS)) {
+        if (mapa[k] != null) continue;
+        if (COLUMNAS[k].includes(t)) {
+          mapa[k] = i;
+          break;
+        }
+      }
+    }
+    return mapa;
+  }
+
+  function parseTablasHtml(doc) {
+    const datos = { proveedor: '', factura: '', fecha: '', nit: '', productos: [] };
+    for (const tabla of doc.querySelectorAll('table')) {
+      if (tabla.parentElement && tabla.parentElement.closest('table')) continue;
+      const filas = [...tabla.rows];
+      let mapa = null;
+      let inicio = -1;
+      for (let i = 0; i < filas.length; i++) {
+        const celdas = [...filas[i].cells].map((c) => c.textContent);
+        const m = mapearCabecera(celdas);
+        if ((m.articulo != null || m.nombre != null) && m.cantidad != null) {
+          mapa = m;
+          inicio = i;
+          break;
+        }
+      }
+      for (const fila of filas) {
+        const celdas = [...fila.cells].map((c) => c.textContent.replace(/\s+/g, ' ').trim());
+        if (celdas.length < 2) continue;
+        const clave = CLAVES[normalizarClave(celdas[0].replace(/:$/, ''))];
+        if (clave && ['proveedor', 'factura', 'fecha', 'nit'].includes(clave) && !datos[clave]) {
+          datos[clave] = celdas[1];
+        }
+      }
+      if (!mapa) continue;
+      for (let i = inicio + 1; i < filas.length; i++) {
+        const celdas = [...filas[i].cells].map((c) => c.textContent.replace(/\s+/g, ' ').trim());
+        if (!celdas.length) continue;
+        const valor = (k) => (mapa[k] != null ? celdas[mapa[k]] || '' : '');
+        const p = {
+          articulo: valor('articulo'),
+          nombre: valor('nombre'),
+          invima: valor('invima') || '0',
+          presentacion: valor('presentacion'),
+          cantidad: valor('cantidad'),
+          vu: numMonto(valor('vu')),
+          total: numMonto(valor('total')),
+          precio: numMonto(valor('precio'))
+        };
+        if (!p.presentacion) p.presentacion = presentacionDe(valor('lote'), valor('vencimiento'));
+        if (!p.articulo && !p.nombre) continue;
+        if (!p.cantidad) continue;
+        datos.productos.push(p);
+      }
+    }
+    return datos;
+  }
+
+  function extraerXmlDeHtml(texto) {
+    const s = String(texto || '');
+    const decodificar = (v) =>
+      v
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&');
+    const plano =
+      s.match(/(<\?xml[\s\S]*?<\/[a-zA-Z0-9]*:?AttachedDocument>)/i) ||
+      s.match(/(<[a-zA-Z0-9]*:?AttachedDocument[\s>][\s\S]*?<\/[a-zA-Z0-9]*:?AttachedDocument>)/i) ||
+      s.match(/(<\?xml[\s\S]*?<\/[a-zA-Z0-9]*:?Invoice>)/i) ||
+      s.match(/(<[a-zA-Z0-9]*:?Invoice[\s>][\s\S]*?<\/[a-zA-Z0-9]*:?Invoice>)/i);
+    if (plano) return plano[1];
+    const escapado = s.match(
+      /(&lt;\?xml[\s\S]*?&lt;\/[a-zA-Z0-9]*:?(?:AttachedDocument|Invoice)&gt;)/i
+    );
+    return escapado ? decodificar(escapado[1]) : '';
+  }
+
+  function textoDeHtml(doc) {
+    if (!doc.body) return '';
+    const clone = doc.body.cloneNode(true);
+    clone.querySelectorAll('br').forEach((el) => el.replaceWith('\n'));
+    clone.querySelectorAll('td, th').forEach((el) => el.append('\t'));
+    clone
+      .querySelectorAll('p, div, tr, li, h1, h2, h3, h4, h5, h6, section, article')
+      .forEach((el) => el.append('\n'));
+    return clone.textContent || '';
+  }
+
+  function parseHtmlFactura(texto) {
+    const xmlTexto = extraerXmlDeHtml(texto);
+    if (xmlTexto) {
+      try {
+        return { datos: parseXml(xmlTexto), xmlTexto };
+      } catch {}
+    }
+    const doc = new DOMParser().parseFromString(texto, 'text/html');
+    for (const pre of doc.querySelectorAll('pre')) {
+      const datos = parseTxtFactura(pre.textContent);
+      if (datos.productos.length) return { datos, xmlTexto: '' };
+    }
+    const datos = parseTablasHtml(doc);
+    const visible = parseTxtFactura(textoDeHtml(doc));
+    for (const k of ['proveedor', 'factura', 'fecha', 'nit']) {
+      if (!datos[k] && visible[k]) datos[k] = visible[k];
+    }
+    if (datos.productos.length) return { datos, xmlTexto: '' };
+    if (visible.productos.length) return { datos: visible, xmlTexto: '' };
+    return { datos, xmlTexto: '' };
+  }
+
   function normalizarProducto(p) {
     const cantidad = num(p.cantidad);
     const vu = num(p.vu ?? p.valorUnitario ?? p.valor_unitario);
@@ -546,27 +891,71 @@
     nav('revision');
   }
 
+  function leerAnexoLocal() {
+    if (!state.anexo || !state.anexoTexto) return { datos: null, xmlTexto: '' };
+    if (state.anexoTipo === 'xml') {
+      return { datos: parseXml(state.anexoTexto), xmlTexto: state.anexoTexto };
+    }
+    if (state.anexoTipo === 'txt') {
+      return { datos: parseTxtFactura(state.anexoTexto), xmlTexto: '' };
+    }
+    if (state.anexoTipo === 'html') {
+      const leido = parseHtmlFactura(state.anexoTexto);
+      return { datos: leido.datos, xmlTexto: leido.xmlTexto };
+    }
+    return { datos: null, xmlTexto: '' };
+  }
+
   async function generarIngreso() {
-    if (!state.soporte) {
-      setMsg('msgSubir', 'Falta el archivo.', 'err');
+    if (state.modo === 'texto') {
+      if (!state.anexo) {
+        setMsg('msgSubir', 'Falta el documento.', 'err');
+        return;
+      }
+      let leido = null;
+      try {
+        leido = leerAnexoLocal();
+      } catch (err) {
+        console.warn('Documento no procesado:', err);
+      }
+      if (!leido || !leido.datos || !(leido.datos.productos || []).length) {
+        setMsg('msgSubir', 'El documento no tiene los datos completos de la factura.', 'err');
+        return;
+      }
+      usarDatos(combinarDatos(leido.datos, null));
+      setMsg('msgRevision', 'Datos tomados del documento, sin IA.', '');
+      setMsg('msgSubir', '');
       return;
     }
-    let xml = null;
-    if (state.xmlTexto) {
-      try {
-        xml = parseXml(state.xmlTexto);
-      } catch (err) {
-        console.warn('XML no procesado:', err);
-      }
+
+    if (!state.soporte) {
+      setMsg('msgSubir', 'Falta el PDF o la foto.', 'err');
+      return;
     }
+
     const btn = $('btnGenerar');
     setBusy(btn, true, 'Leyendo');
     setMsg('msgSubir', 'Leyendo factura.', '');
     try {
+      let apoyo = '';
+      if (state.anexo && state.anexoTexto) {
+        try {
+          apoyo = leerAnexoLocal().xmlTexto;
+        } catch {}
+        if (!apoyo) {
+          apoyo =
+            state.anexoTipo === 'html'
+              ? textoDeHtml(new DOMParser().parseFromString(state.anexoTexto, 'text/html'))
+              : state.anexoTexto;
+          apoyo = apoyo.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+        }
+        apoyo = apoyo.slice(0, 120000);
+      }
+
       let datos = null;
       try {
-        const leido = await leerFacturaServidor(state.soporte, state.xmlTexto);
-        datos = combinarDatos(leido, xml);
+        const leido = await leerFacturaServidor(state.soporte, apoyo);
+        datos = combinarDatos(leido, null);
         if (!datos.productos.length) datos = null;
       } catch (err) {
         console.warn(err);
@@ -584,19 +973,14 @@
         const pct = p && typeof p.progress === 'number' ? ` · ${Math.round(p.progress * 100)}%` : '';
         setMsg('msgSubir', `${(p && p.status) || 'Leyendo factura'}${pct}`, '');
       });
-      const local = combinarDatos(leido, xml);
+      const local = combinarDatos(leido, null);
       if (!local.productos.length && !local.proveedor && !local.factura) {
         throw new Error('No se pudo leer la factura.');
       }
       usarDatos(local);
       setMsg('msgSubir', '');
     } catch (err) {
-      if (xml && xml.productos && xml.productos.length) {
-        usarDatos(combinarDatos({}, xml));
-        setMsg('msgRevision', 'Datos tomados del XML.', '');
-      } else {
-        setMsg('msgSubir', err.message || String(err), 'err');
-      }
+      setMsg('msgSubir', err.message || String(err), 'err');
     } finally {
       setBusy(btn, false);
     }
@@ -711,6 +1095,7 @@
     if (!(d.productos || []).length) agregarFila($('revProductos'));
     $('revTxt').textContent = state.txtGenerado || '';
     setMsg('msgRevision', '');
+    actualizarAvisoPago('rev');
   }
 
   async function guardarNueva() {
@@ -730,7 +1115,7 @@
       setMsg('msgRevision', 'Agrega al menos un producto.', 'err');
       return;
     }
-    if (!state.soporte) {
+    if (!state.soporte && !state.anexo) {
       setMsg('msgRevision', 'Falta el archivo original.', 'err');
       return;
     }
@@ -739,26 +1124,27 @@
     setBusy(btn, true, 'Guardando');
     setMsg('msgRevision', '');
 
+    const soporte = state.soporte || state.anexo;
     const id = crypto.randomUUID();
-    const soportePath = `${id}/soporte.${extDeArchivo(state.soporte)}`;
-    const xmlPath = state.xml ? `${id}/factura.xml` : null;
+    const soportePath = `${id}/soporte.${extDeArchivo(soporte)}`;
+    const anexoPath = state.soporte && state.anexo ? `${id}/anexo.${extDeArchivo(state.anexo)}` : null;
     const subidos = [];
 
     try {
-      const upSoporte = await sb.storage.from('facturas').upload(soportePath, state.soporte, {
-        contentType: mimeDeArchivo(state.soporte),
+      const upSoporte = await sb.storage.from('facturas').upload(soportePath, soporte, {
+        contentType: mimeDeArchivo(soporte),
         upsert: false
       });
       if (upSoporte.error) throw new Error('No se pudo guardar el archivo.');
       subidos.push(soportePath);
 
-      if (state.xml) {
-        const upXml = await sb.storage.from('facturas').upload(xmlPath, state.xml, {
-          contentType: state.xml.type || 'application/xml',
+      if (anexoPath) {
+        const upAnexo = await sb.storage.from('facturas').upload(anexoPath, state.anexo, {
+          contentType: mimeDeArchivo(state.anexo),
           upsert: false
         });
-        if (upXml.error) throw new Error('No se pudo guardar el XML.');
-        subidos.push(xmlPath);
+        if (upAnexo.error) throw new Error('No se pudo guardar el anexo.');
+        subidos.push(anexoPath);
       }
 
       const datos = { ...header, productos };
@@ -771,10 +1157,10 @@
         productos,
         estado: 'pendiente',
         soporte_path: soportePath,
-        soporte_nombre: state.soporte.name,
-        soporte_tipo: mimeDeArchivo(state.soporte),
-        xml_path: xmlPath,
-        xml_nombre: state.xml ? state.xml.name : null,
+        soporte_nombre: soporte.name,
+        soporte_tipo: mimeDeArchivo(soporte),
+        xml_path: anexoPath,
+        xml_nombre: anexoPath ? state.anexo.name : null,
         txt_generado: generarTxt(datos),
         informe: null
       });
@@ -782,6 +1168,11 @@
 
       limpiarNueva();
       await abrirFactura(id);
+      if (window.Terceros) {
+        window.Terceros
+          .aprender(header.proveedor, header.nit)
+          .then(() => actualizarAvisoPago('det'));
+      }
       setMsg('msgDetalle', 'Guardado.', 'ok');
     } catch (err) {
       if (subidos.length) {
@@ -898,6 +1289,7 @@
 
     setMsg('msgDetalle', '');
     setMsg('msgInforme', '');
+    actualizarAvisoPago('det');
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
@@ -948,6 +1340,11 @@
 
       renderFactura();
       setMsg('msgDetalle', 'Guardado.', 'ok');
+      if (window.Terceros) {
+        window.Terceros
+          .aprender(f.proveedor, f.nit)
+          .then(() => actualizarAvisoPago('det'));
+      }
     } catch (err) {
       setMsg('msgDetalle', 'No se pudo guardar.', 'err');
     } finally {
@@ -1123,9 +1520,15 @@
 
   function wireEventos() {
     $('btnGenerar').addEventListener('click', generarIngreso);
+    $('modoLectura').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-modo]');
+      if (!b || b.dataset.modo === state.modo) return;
+      setModo(b.dataset.modo);
+    });
     $('btnVolver').addEventListener('click', volver);
     $('btnLista').addEventListener('click', irLista);
     $('btnInventario').addEventListener('click', () => nav('inventario'));
+    $('btnTerceros').addEventListener('click', () => nav('terceros'));
     $('btnGuardar').addEventListener('click', guardarNueva);
     $('btnAgregarProducto').addEventListener('click', () => agregarFila($('revProductos')));
     $('btnAgregarProductoDet').addEventListener('click', () => agregarFila($('detProductos')));
@@ -1156,6 +1559,15 @@
       $(id).addEventListener('blur', (e) => {
         e.target.value = cleanFactura(e.target.value);
       });
+    });
+
+    [
+      ['revNit', 'rev'],
+      ['revProveedor', 'rev'],
+      ['detInNit', 'det'],
+      ['detInProveedor', 'det']
+    ].forEach(([id, prefix]) => {
+      $(id).addEventListener('input', () => programarAvisoPago(prefix));
     });
 
     wireFileInputs();

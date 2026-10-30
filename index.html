@@ -18,6 +18,7 @@
     <nav class="header-actions">
       <button type="button" class="btn-ghost" id="btnVolver" hidden>Volver</button>
       <button type="button" class="btn-ghost" id="btnInventario">Inventario</button>
+      <button type="button" class="btn-ghost" id="btnTerceros">Retención y pago</button>
       <button type="button" class="btn-ghost" id="btnLista">Facturas guardadas</button>
     </nav>
   </header>
@@ -29,16 +30,25 @@
       </div>
     </div>
     <div class="card">
+      <div class="modo-cab">
+        <span class="modo-label">Cómo leer la factura</span>
+        <div class="seg" id="modoLectura" role="radiogroup" aria-label="Cómo leer la factura">
+          <button type="button" class="seg-btn active" data-modo="ia" role="radio" aria-checked="true">Con IA</button>
+          <button type="button" class="seg-btn" data-modo="texto" role="radio" aria-checked="false">Del documento</button>
+        </div>
+      </div>
       <div class="files">
-        <label class="filebox" for="soporteFile">
-          <span class="filebox-title">PDF o foto <span class="req">obligatorio</span></span>
+        <label class="filebox" for="soporteFile" id="boxSoporte">
+          <span class="filebox-title">PDF o foto</span>
           <input type="file" id="soporteFile" class="sr-only" accept="application/pdf,image/*">
           <span class="filebox-name" id="soporteNombre">Ningún archivo</span>
+          <span class="filebox-hint" id="soporteHint">Se lee con IA. Consume cupo.</span>
         </label>
-        <label class="filebox" for="xmlFile">
-          <span class="filebox-title">XML <span class="opt">opcional</span></span>
-          <input type="file" id="xmlFile" class="sr-only" accept=".xml,application/xml,text/xml">
-          <span class="filebox-name" id="xmlNombre">Ningún archivo</span>
+        <label class="filebox" for="anexoFile" id="boxAnexo">
+          <span class="filebox-title">XML, HTML o TXT</span>
+          <input type="file" id="anexoFile" class="sr-only" accept=".xml,.html,.htm,.txt,application/xml,text/xml,text/html,text/plain">
+          <span class="filebox-name" id="anexoNombre">Ningún archivo</span>
+          <span class="filebox-hint" id="anexoHint">Opcional. La IA lo usa de apoyo.</span>
         </label>
       </div>
       <div class="row-btns">
@@ -54,6 +64,7 @@
         <h1>Revisar datos</h1>
       </div>
     </div>
+    <p class="aviso-pago" id="revAvisoPago" hidden></p>
     <div class="card">
       <h2>Datos de la factura</h2>
       <div class="grid">
@@ -131,6 +142,70 @@
         </table>
       </div>
       <p class="empty" id="listaVacia" hidden>No hay facturas guardadas.</p>
+    </div>
+  </section>
+
+  <section id="pantallaTerceros" class="pantalla" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Retención y pago</h1>
+        <p class="sub">Empresas, condición de pago y retención en la fuente</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2 id="terFormTitulo">Agregar empresa</h2>
+        <button type="button" class="btn-ghost btn-sm" id="terCancelar" hidden>Cancelar</button>
+      </div>
+      <div class="grid">
+        <div><label for="terNombre">Nombre</label><input id="terNombre" autocomplete="off"></div>
+        <div><label for="terNit">NIT</label><input id="terNit" autocomplete="off" placeholder="900026670-2"></div>
+        <div>
+          <label for="terPago">Pago</label>
+          <select id="terPago">
+            <option value="">Sin dato</option>
+            <option value="contado">Contado</option>
+            <option value="credito">Crédito</option>
+            <option value="ambos">Contado y crédito</option>
+          </select>
+        </div>
+        <div>
+          <label for="terRet">Retención</label>
+          <select id="terRet">
+            <option value="">Sin dato</option>
+            <option value="no">No hace</option>
+            <option value="si">Hace sobre base</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-btns">
+        <button type="button" class="btn-primary" id="terGuardar">Agregar</button>
+      </div>
+      <div class="msg" id="terMsg"></div>
+    </div>
+
+    <div class="card">
+      <div class="inv-toolbar">
+        <input type="search" id="terBusqueda" placeholder="Buscar por nombre o NIT" autocomplete="off">
+        <span class="inv-cuenta" id="terCuenta"></span>
+      </div>
+      <div class="msg" id="terListaMsg"></div>
+      <div class="table-wrap">
+        <table class="tabla-terceros">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>NIT</th>
+              <th>Pago</th>
+              <th>Retención</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="terTbody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="terVacia" hidden>Sin empresas.</p>
     </div>
   </section>
 
@@ -237,11 +312,12 @@
     </div>
     <div class="card">
       <div class="row-btns no-margin">
-        <button type="button" class="btn-ghost" id="btnDescargarSoporte" hidden>Descargar PDF/foto</button>
-        <button type="button" class="btn-ghost" id="btnDescargarXml" hidden>Descargar XML</button>
+        <button type="button" class="btn-ghost" id="btnDescargarSoporte" hidden>Descargar soporte</button>
+        <button type="button" class="btn-ghost" id="btnDescargarXml" hidden>Descargar anexo</button>
         <button type="button" class="btn-danger" id="btnEliminar">Eliminar</button>
       </div>
     </div>
+    <p class="aviso-pago" id="detAvisoPago" hidden></p>
     <div class="card">
       <h2>Datos de la factura</h2>
       <div class="grid">
@@ -313,6 +389,7 @@
 
 <script src="assets/vendor/supabase.js"></script>
 <script src="assets/config.js"></script>
+<script src="assets/terceros.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/inventario.js"></script>
 </body>

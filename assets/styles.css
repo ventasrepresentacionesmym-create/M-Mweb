@@ -33,7 +33,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.wrap { max-width: 1080px; margin: 0 auto; }
+.wrap { max-width: 1440px; margin: 0 auto; }
 
 .app-header {
   position: sticky;
@@ -131,6 +131,36 @@ textarea { resize: vertical; min-height: 160px; }
 
 .files { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
 @media (max-width: 640px) { .files { grid-template-columns: 1fr; } }
+
+.modo-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.modo-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.seg-btn {
+  border: 0;
+  border-radius: 0;
+  padding: 8px 16px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.seg-btn + .seg-btn { border-left: 1px solid var(--line-strong); }
+.seg-btn:hover { background: var(--soft); }
+.seg-btn.active { background: var(--ink); color: #fff; }
+.seg-btn.active:hover { background: var(--ink); }
 .filebox {
   display: block;
   border: 1px dashed var(--line-strong);
@@ -148,6 +178,7 @@ textarea { resize: vertical; min-height: 160px; }
   margin-bottom: 6px;
 }
 .filebox-name { display: block; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.filebox-hint { display: block; margin-top: 4px; font-size: 11px; color: var(--faint); }
 .req, .opt { font-size: 11px; font-weight: 400; color: var(--faint); }
 
 .sr-only {
@@ -239,24 +270,38 @@ tbody tr:last-child td { border-bottom: 0; }
 .tabla-lista tbody tr:hover { background: var(--soft); }
 .tabla-lista tbody tr:focus { outline: 1px solid var(--ink); outline-offset: -1px; }
 
-.tabla-productos { min-width: 1010px; }
-.tabla-productos th { padding: 0 6px 10px; }
+.tabla-productos { min-width: 1215px; table-layout: fixed; }.tabla-productos th { padding: 0 6px 10px; }
 .tabla-productos td { padding: 4px 5px; }
 .tabla-productos input {
   padding: 8px 10px;
+  min-width: 0;
   font-size: 13px;
   border-color: var(--line);
   border-radius: 6px;
 }
-.tabla-productos td:nth-child(1) input { min-width: 84px; }
-.tabla-productos td:nth-child(2) input { min-width: 210px; }
-.tabla-productos td:nth-child(3) input { min-width: 120px; }
-.tabla-productos td:nth-child(4) input { min-width: 115px; }
-.tabla-productos td:nth-child(5) input { min-width: 70px; }
-.tabla-productos td:nth-child(6) input { min-width: 78px; }
-.tabla-productos td:nth-child(7) input,
-.tabla-productos td:nth-child(8) input { min-width: 100px; }
-.tabla-productos td:last-child { width: 64px; text-align: right; }
+.tabla-productos th:nth-child(1) { width: 100px; }
+.tabla-productos th:nth-child(3) { width: 180px; }
+.tabla-productos th:nth-child(4) { width: 150px; }
+.tabla-productos th:nth-child(5) { width: 88px; }
+.tabla-productos th:nth-child(6) { width: 100px; }
+.tabla-productos th:nth-child(7),
+.tabla-productos th:nth-child(8) { width: 115px; }
+.tabla-productos th:last-child { width: 84px; }
+.tabla-productos td:last-child { text-align: right; }
+
+.aviso-pago {
+  margin: -4px 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.aviso-pago strong { font-weight: 600; color: var(--ink); }
+
+.tabla-terceros { min-width: 760px; }
+.tabla-terceros td:first-child { font-weight: 500; }
+.tabla-terceros td:nth-child(3), .tabla-terceros td:nth-child(4) { white-space: nowrap; }
+.tabla-terceros th:last-child, .tabla-terceros td.ter-acciones { text-align: right; width: 130px; }
+.tabla-terceros td.ter-acciones button { margin-left: 4px; }
 
 .badge {
   display: inline-flex;
@@ -369,7 +414,7 @@ details summary:hover { color: var(--ink); }
   border: 1px solid var(--ink);
   border-radius: var(--radius);
   width: 100%;
-  max-width: 620px;
+  max-width: 720px;
   max-height: 82vh;
   display: flex;
   flex-direction: column;
@@ -418,6 +463,7 @@ details summary:hover { color: var(--ink); }
   .tabla-lista { min-width: 0; }
   .tabla-lista th:nth-child(4), .tabla-lista td:nth-child(4) { display: none; }
   .header-actions { gap: 16px; }
+  .seg-btn { padding: 8px 11px; font-size: 12px; }
   .inv-toolbar input[type="search"] { flex: 1 1 100%; max-width: none; }
   .inv-cuenta { margin-left: 0; }
   .inv-viewport { height: clamp(280px, 52vh, 520px); }

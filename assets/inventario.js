@@ -52,13 +52,22 @@ window.Inventario = (() => {
     return s;
   }
 
+  function ultimoDiaMes(anio, mes) {
+    const y = Number(anio);
+    const m = Number(mes);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return '';
+    return String(new Date(y, m, 0).getDate()).padStart(2, '0');
+  }
+
   function fechaISO(v) {
     const s = (v || '').trim();
     if (!s || /^\|+$/.test(s)) return '—';
     let m = s.match(/^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?/);
     if (m) {
       const mes = m[2].padStart(2, '0');
-      return m[3] ? `${m[1]}-${mes}-${m[3].padStart(2, '0')}` : `${m[1]}-${mes}`;
+      return m[3]
+        ? `${m[1]}-${mes}-${m[3].padStart(2, '0')}`
+        : `${m[1]}-${mes}-${ultimoDiaMes(m[1], mes)}`;
     }
     m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
     if (m) {
@@ -66,7 +75,7 @@ window.Inventario = (() => {
       return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
     }
     m = s.match(/^(\d{1,2})[-\/.](\d{4})$/);
-    if (m) return `${m[2]}-${m[1].padStart(2, '0')}`;
+    if (m) return `${m[2]}-${m[1].padStart(2, '0')}-${ultimoDiaMes(m[2], m[1])}`;
     return s;
   }
 
@@ -603,7 +612,9 @@ window.Inventario = (() => {
       let d;
       if ((d = c0.match(/^(\d{4})-(\d{2})-(\d{2})/))) { y = d[1]; mn = d[2]; dd = d[3]; }
       else if ((d = c0.match(/^(\d{2})-(\d{2})-(\d{2,4})/))) { dd = d[1]; mn = d[2]; y = d[3].length === 2 ? '20' + d[3] : d[3]; }
+      else if ((d = c0.match(/^(\d{4})-(\d{1,2})$/))) { y = d[1]; mn = d[2].padStart(2, '0'); dd = ultimoDiaMes(d[1], mn); }
       else return;
+      if (!dd) return;
 
       const qi = movNum(r[4]);
       const vi = movNum(r[5]);

@@ -67,6 +67,13 @@
     return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   }
 
+  function ultimoDiaMes(anio, mes) {
+    const y = Number(anio);
+    const m = Number(mes);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return '';
+    return String(new Date(y, m, 0).getDate()).padStart(2, '0');
+  }
+
   function normFecha(v) {
     if (!v) return '';
     const s = String(v).trim();
@@ -74,6 +81,8 @@
     if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
     m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
     if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    m = s.match(/^(\d{4})[-\/.](\d{1,2})$/);
+    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${ultimoDiaMes(m[1], m[2])}`;
     return '';
   }
 
@@ -82,15 +91,29 @@
     const s = String(v).trim();
     let m = s.match(/^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?/);
     if (m) {
+      const mes = m[2].padStart(2, '0');
       return m[3]
-        ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
-        : `${m[1]}-${m[2].padStart(2, '0')}`;
+        ? `${m[1]}-${mes}-${m[3].padStart(2, '0')}`
+        : `${m[1]}-${mes}-${ultimoDiaMes(m[1], mes)}`;
     }
     m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
     if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
     m = s.match(/^(\d{1,2})[-\/.](\d{4})/);
-    if (m) return `${m[2]}-${m[1].padStart(2, '0')}`;
+    if (m) {
+      const mes = m[1].padStart(2, '0');
+      return `${m[2]}-${mes}-${ultimoDiaMes(m[2], mes)}`;
+    }
     return s;
+  }
+
+  function normPresentacion(v) {
+    const s = String(v || '').trim();
+    const i = s.indexOf(':');
+    if (i === -1) return s;
+    const lote = s.slice(0, i).trim();
+    const venc = s.slice(i + 1).trim();
+    if (!venc || /^\|+$/.test(venc)) return `${lote}:||`;
+    return `${lote}:${normVencimiento(venc)}`;
   }
 
   function presentacionDe(lote, venc) {
@@ -536,9 +559,7 @@
         const articulo = seller ? ns(seller, 'ID') : ns(item, 'ID');
         const lote = ns(line, 'LotNumberID');
         const venc = ns(line, 'ExpiryDate');
-        let presentacion = '||';
-        if (lote && venc) presentacion = lote.replace(/[^A-Za-z0-9]/g, '') + ':' + venc;
-        else if (lote) presentacion = lote.replace(/[^A-Za-z0-9]/g, '') + ':||';
+        const presentacion = presentacionDe(lote, venc);
         let vu = '';
         const props = item ? [...item.getElementsByTagNameNS('*', 'AdditionalItemProperty')] : [];
         props.forEach((p) => {
@@ -829,7 +850,7 @@
       nombre: String(p.nombre || '').trim(),
       invima,
       presentacion:
-        String(p.presentacion || '').trim() || presentacionDe(p.lote, p.vencimiento),
+        normPresentacion(String(p.presentacion || '').trim()) || presentacionDe(p.lote, p.vencimiento),
       cantidad: cantidad ?? '',
       vu: vu ?? '',
       total: total ?? '',
@@ -1027,6 +1048,11 @@
         tr.querySelector('[data-k="precio"]').value = String(round2(vu * 1.25));
       }
     });
+    tbody.addEventListener('focusout', (e) => {
+      if (!e.target.dataset || e.target.dataset.k !== 'presentacion') return;
+      const v = normPresentacion(e.target.value);
+      if (v) e.target.value = v;
+    });
     tbody.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-quitar]');
       if (!btn) return;
@@ -1055,7 +1081,7 @@
           articulo: val('articulo'),
           nombre: val('nombre'),
           invima,
-          presentacion: val('presentacion') || '||',
+          presentacion: normPresentacion(val('presentacion')) || '||',
           cantidad: cantidad ?? '',
           vu: vu ?? '',
           total: total ?? '',

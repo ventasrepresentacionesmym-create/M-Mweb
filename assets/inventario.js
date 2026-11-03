@@ -52,6 +52,24 @@ window.Inventario = (() => {
     return s;
   }
 
+  function fechaISO(v) {
+    const s = (v || '').trim();
+    if (!s || /^\|+$/.test(s)) return '—';
+    let m = s.match(/^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?/);
+    if (m) {
+      const mes = m[2].padStart(2, '0');
+      return m[3] ? `${m[1]}-${mes}-${m[3].padStart(2, '0')}` : `${m[1]}-${mes}`;
+    }
+    m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+    if (m) {
+      const y = m[3].length === 2 ? '20' + m[3] : m[3];
+      return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    }
+    m = s.match(/^(\d{1,2})[-\/.](\d{4})$/);
+    if (m) return `${m[2]}-${m[1].padStart(2, '0')}`;
+    return s;
+  }
+
   function normalize(str) {
     return (str || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
@@ -214,7 +232,7 @@ window.Inventario = (() => {
       const p = products.get(codigo);
       p.exi += cantidad;
       if (costo > p.costo) p.costo = costo;
-      p.lotes.push({ lote: cleanLoteFecha(lote), fecha: cleanLoteFecha(fecha), cantidad: fmtNum(cantidad), costo: fmtNum(costo) });
+      p.lotes.push({ lote: cleanLoteFecha(lote), fecha: fechaISO(fecha), cantidad: fmtNum(cantidad), costo: fmtNum(costo) });
     }
 
     return order.map((k) => {
@@ -534,7 +552,7 @@ window.Inventario = (() => {
 
   function movQf(x) { return x.toLocaleString('es-CO', { maximumFractionDigits: 2 }); }
   function movPf(x) { return x == null ? '—' : x.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function movRev(s) { return s ? s.split('-').reverse().join('-') : '—'; }
+  function movRev(s) { return fechaISO(s); }
 
   function rowsFromMovHtml(text) {
     const doc = new DOMParser().parseFromString(text, 'text/html');

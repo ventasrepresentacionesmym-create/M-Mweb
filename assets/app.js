@@ -102,26 +102,16 @@
 
   function fmtFecha(v) {
     if (!v) return '—';
-    const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-    return String(v);
+    const iso = normFecha(v);
+    return iso || String(v);
   }
 
   function fmtFechaHora(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
-    try {
-      return d.toLocaleString('es-CO', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return d.toISOString().slice(0, 16).replace('T', ' ');
-    }
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
   function bytes(n) {
@@ -1111,6 +1101,10 @@
       setMsg('msgRevision', 'Escribe el número de factura.', 'err');
       return;
     }
+    if ($('revFecha').value.trim() && !header.fecha) {
+      setMsg('msgRevision', 'Fecha no válida. Usa AAAA-MM-DD.', 'err');
+      return;
+    }
     if (!productos.length) {
       setMsg('msgRevision', 'Agrega al menos un producto.', 'err');
       return;
@@ -1305,6 +1299,10 @@
     }
     if (!header.factura) {
       setMsg('msgDetalle', 'Escribe el número de factura.', 'err');
+      return;
+    }
+    if ($('detInFecha').value.trim() && !header.fecha) {
+      setMsg('msgDetalle', 'Fecha no válida. Usa AAAA-MM-DD.', 'err');
       return;
     }
     if (!productos.length) {
@@ -1558,6 +1556,13 @@
     ['revFactura', 'detInFactura'].forEach((id) => {
       $(id).addEventListener('blur', (e) => {
         e.target.value = cleanFactura(e.target.value);
+      });
+    });
+
+    ['revFecha', 'detInFecha'].forEach((id) => {
+      $(id).addEventListener('blur', (e) => {
+        const v = normFecha(e.target.value);
+        if (v) e.target.value = v;
       });
     });
 

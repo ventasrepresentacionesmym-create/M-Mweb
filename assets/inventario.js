@@ -79,6 +79,18 @@ window.Inventario = (() => {
     return s;
   }
 
+  // Vence dentro del próximo año, incluidos los ya vencidos.
+  function vencimientoProximo(v) {
+    const iso = fechaISO(v);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+    const [y, m, d] = iso.split('-').map(Number);
+    const fecha = new Date(y, m - 1, d);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(hoy.getFullYear() + 1, hoy.getMonth(), hoy.getDate());
+    return fecha <= limite;
+  }
+
   function normalize(str) {
     return (str || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
@@ -535,7 +547,7 @@ window.Inventario = (() => {
       body.innerHTML = '<p class="empty">Sin existencia registrada.</p>';
     } else {
       body.innerHTML = '<table><thead><tr><th>Lote</th><th>Vencimiento</th><th class="inv-num">Cantidad</th><th class="inv-num">Costo</th></tr></thead><tbody>' +
-        p.lotes.map((l) => `<tr><td>${esc(l.lote)}</td><td>${esc(l.fecha)}</td><td class="inv-num">${esc(l.cantidad)}</td><td class="inv-num">${esc(l.costo)}</td></tr>`).join('') +
+        p.lotes.map((l) => `<tr><td>${esc(l.lote)}</td><td${vencimientoProximo(l.fecha) ? ' class="venc-alerta"' : ''}>${esc(l.fecha)}</td><td class="inv-num">${esc(l.cantidad)}</td><td class="inv-num">${esc(l.costo)}</td></tr>`).join('') +
         '</tbody></table>';
     }
     mostrar($('invModal'), true);
@@ -674,7 +686,7 @@ window.Inventario = (() => {
 
       h += '<h3 class="inv-mov-sec">Existencias por lote</h3><div class="card"><table><thead><tr><th>Lote</th><th>Vencimiento</th><th class="inv-num">Cantidad</th></tr></thead><tbody>';
       h += sl.length
-        ? sl.map((s) => '<tr><td>' + esc(s.lot) + '</td><td>' + movRev(s.ven) + '</td><td class="inv-num">' + movQf(s.q) + '</td></tr>').join('')
+        ? sl.map((s) => '<tr><td>' + esc(s.lot) + '</td><td' + (vencimientoProximo(s.ven) ? ' class="venc-alerta"' : '') + '>' + movRev(s.ven) + '</td><td class="inv-num">' + movQf(s.q) + '</td></tr>').join('')
         : '<tr><td colspan="3">Sin existencias.</td></tr>';
       h += '</tbody></table></div>';
 
@@ -693,7 +705,7 @@ window.Inventario = (() => {
         '<td class="inv-num">' + movPf(m.costo) + '</td>' +
         '<td>' + movRev(m.f) + '</td>' +
         '<td>' + esc(m.lot) + '</td>' +
-        '<td>' + movRev(m.ven) + '</td>' +
+        '<td' + (vencimientoProximo(m.ven) ? ' class="venc-alerta"' : '') + '>' + movRev(m.ven) + '</td>' +
         '</tr>'
       ).join('');
       h += '</tbody></table></div>';

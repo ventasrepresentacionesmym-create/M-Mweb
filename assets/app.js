@@ -123,6 +123,20 @@
     return `${l}:${v || '||'}`;
   }
 
+  // Vence dentro del próximo año, incluidos los ya vencidos.
+  function vencimientoProximo(presentacion) {
+    const s = String(presentacion || '');
+    const i = s.indexOf(':');
+    const iso = normVencimiento(i === -1 ? '' : s.slice(i + 1));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+    const [y, m, d] = iso.split('-').map(Number);
+    const fecha = new Date(y, m - 1, d);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(hoy.getFullYear() + 1, hoy.getMonth(), hoy.getDate());
+    return fecha <= limite;
+  }
+
   function fmtFecha(v) {
     if (!v) return '—';
     const iso = normFecha(v);
@@ -998,11 +1012,12 @@
   }
 
   function celdasProductoHTML(p) {
+    const alerta = vencimientoProximo(p.presentacion);
     return `
       <td><input data-k="articulo" value="${esc(p.articulo)}" autocomplete="off"></td>
       <td><input data-k="nombre" value="${esc(p.nombre)}" autocomplete="off"></td>
       <td><input data-k="invima" value="${esc(p.invima || '0')}" autocomplete="off"></td>
-      <td><input data-k="presentacion" value="${esc(p.presentacion || '||')}" autocomplete="off"></td>
+      <td${alerta ? ' class="venc-alerta"' : ''}><input data-k="presentacion" value="${esc(p.presentacion || '||')}" autocomplete="off"></td>
       <td><input type="number" step="any" data-k="cantidad" value="${esc(p.cantidad)}"></td>
       <td><input type="number" step="any" data-k="vu" value="${esc(p.vu)}"></td>
       <td><input type="number" step="any" data-k="total" value="${esc(p.total)}"></td>
@@ -1038,6 +1053,10 @@
       const tr = e.target.closest('tr');
       if (!tr) return;
       const k = e.target.dataset ? e.target.dataset.k : '';
+      if (k === 'presentacion') {
+        const td = e.target.closest('td');
+        if (td) td.classList.toggle('venc-alerta', vencimientoProximo(e.target.value));
+      }
       if (k !== 'vu' && k !== 'cantidad') return;
       const cantidad = num(tr.querySelector('[data-k="cantidad"]').value);
       const vu = num(tr.querySelector('[data-k="vu"]').value);
@@ -1052,6 +1071,8 @@
       if (!e.target.dataset || e.target.dataset.k !== 'presentacion') return;
       const v = normPresentacion(e.target.value);
       if (v) e.target.value = v;
+      const td = e.target.closest('td');
+      if (td) td.classList.toggle('venc-alerta', vencimientoProximo(e.target.value));
     });
     tbody.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-quitar]');
